@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Upload, Button, message, Space } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { createMaterial, updateMaterial, uploadMaterialImages, deleteMaterialImage, getDropdowns } from '../utils/api';
+import { filterHiddenDropdowns } from '../utils/dropdownFilter';
 
 const { TextArea } = Input;
 
@@ -24,8 +25,8 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
         form.setFieldsValue({
           materialName: editingMaterial.materialName,
           materialNumber: editingMaterial.materialNumber,
-          divisionId: editingMaterial.divisionId?._id,
-          placementId: editingMaterial.placementId?._id,
+          divisionId: editingMaterial.divisionId?.id || editingMaterial.divisionId?._id,
+          placementId: editingMaterial.placementId?.id || editingMaterial.placementId?._id,
           function: editingMaterial.function,
         });
         setExistingImages(editingMaterial.images || []);
@@ -40,47 +41,45 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
   const fetchDropdowns = async () => {
     try {
       const [divData, placeData] = await Promise.all([
-        getDropdowns('division'),
-        getDropdowns('placement')
+        getDropdowns('division', false),
+        getDropdowns('placement', false)
       ]);
-      setDivisions(divData);
-      setPlacements(placeData);
+      // Filter out hidden dropdowns using utility function
+      setDivisions(filterHiddenDropdowns(divData));
+      setPlacements(filterHiddenDropdowns(placeData));
     } catch (error) {
       message.error('Failed to load dropdowns: ' + error);
     }
   };
 
-  // Handle form submit
   const handleSubmit = async (values) => {
-    console.log('📤 Submitting material data:', values);
+    console.log('Submitting material data:', values);
     setLoading(true);
     try {
       let material;
       
       if (editingMaterial) {
-        // Update material
-        material = await updateMaterial(editingMaterial._id, values);
+        const materialId = editingMaterial.id || editingMaterial._id;
+        material = await updateMaterial(materialId, values);
         message.success('Material updated successfully');
       } else {
-        // Create new material
         console.log('Creating new material with data:', values);
         material = await createMaterial(values);
         console.log('Material created:', material);
         message.success('Material created successfully');
       }
 
-      // Upload images jika ada
       if (fileList.length > 0) {
         const formData = new FormData();
         fileList.forEach(file => {
-          // File bisa berupa object dari Upload component atau raw file
           const rawFile = file.originFileObj || file;
           console.log('Appending file:', rawFile.name, rawFile.type, rawFile.size);
           formData.append('images', rawFile);
         });
 
-        console.log('Uploading', fileList.length, 'images for material:', material._id);
-        await uploadMaterialImages(material._id, formData);
+        const materialId = material.id || material._id;
+        console.log('Uploading', fileList.length, 'images for material:', materialId);
+        await uploadMaterialImages(materialId, formData);
         message.success('Images uploaded successfully');
       }
 
@@ -93,11 +92,11 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
     }
   };
 
-  // Handle delete existing image
-  const handleDeleteImage = async (imageId) => {
+  const handleDeleteImage = async (imageUrl) => {
     try {
-      await deleteMaterialImage(editingMaterial._id, imageId);
-      setExistingImages(existingImages.filter(img => img._id !== imageId));
+      const materialId = editingMaterial.id || editingMaterial._id;
+      await deleteMaterialImage(materialId, imageUrl);
+      setExistingImages(existingImages.filter(img => img.url !== imageUrl));
       message.success('Image deleted successfully');
     } catch (error) {
       message.error('Failed to delete image: ' + error);
@@ -224,7 +223,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
           <Form.Item label="Current Images">
             <Space wrap>
               {existingImages.map((img) => (
-                <div key={img._id} style={{ position: 'relative', display: 'inline-block' }}>
+                <div key={img.url} style={{ position: 'relative', display: 'inline-block' }}>
                   <img
                     src={`http://localhost:5001${img.url}`}
                     alt="Material"
@@ -235,7 +234,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
                     size="small"
                     icon={<DeleteOutlined />}
                     style={{ position: 'absolute', top: 4, right: 4 }}
-                    onClick={() => handleDeleteImage(img._id)}
+                    onClick={() => handleDeleteImage(img.url)}
                   />
                 </div>
               ))}

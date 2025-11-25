@@ -10,44 +10,68 @@
 
 ## Understanding the Project Structure
 
-The project is divided into two main parts:
+The project is organized into the following main folders:
 
 1. **Backend** (Server-side) - Located in `/backend` folder
    - Handles database operations
    - Manages API endpoints
    - Handles authentication and file uploads
+   - Contains configuration files and middleware
 
 2. **Frontend** (Client-side) - Located in `/frontend` folder
    - User interface and design
    - Page layouts and forms
    - API calls to backend
+   - Utility functions for data filtering
+
+3. **dokumentasi/** - Documentation folder
+   - Contains all technical documentation and testing reports
+   - Files: API_TEST_RESULTS.md, FINAL_CONSISTENCY_AUDIT.md, FRONTEND_AND_UPLOAD_TEST.md, 
+     FRONTEND_BROWSER_TEST.md, MIGRATION_SUMMARY.md, REGISTRATION_FEATURE.md, 
+     SOFT_DELETE_IMPLEMENTATION.md, SOFT_DELETE_SUMMARY.md, TIMESTAMP_AND_CORRELATION_AUDIT.md, audit-report.md
+
+4. **testing/** - Test scripts folder
+   - Contains all shell scripts for testing functionality
+   - Scripts: consistency-test.sh, start-server.sh, test-correlation.sh, 
+     test-frontend-workflow.sh, test-soft-delete.sh
 
 ---
 
 ## How to Modify Features
 
-### 1. Login Page Customization
+### 1. Login & Registration Pages
 
-**What to modify:** Login form, styling, validation
+**What to modify:** Login/registration forms, styling, validation, background image
 
 **Files to edit:**
 - `/frontend/src/pages/Login.jsx` - Login page UI and logic
-- `/backend/routes/auth.js` - Login authentication logic
+- `/frontend/src/pages/Register.jsx` - Registration page UI and logic
+- `/backend/routes/auth.js` - Authentication logic
+- `/frontend/public/BG.webp` - Background image (can be replaced)
+
+**Current features:**
+- English language interface
+- Custom background image (BG.webp)
+- Form validation with clear error messages
+- Session-based authentication
 
 **Example changes:**
-- Change login form fields
-- Add "Remember Me" checkbox
-- Change password validation rules
-- Modify error messages
+- Change background image by replacing BG.webp
+- Modify form validation rules
+- Change spacing and layout
+- Add additional fields (e.g., phone number, company name)
 
-**How to:**
+**How to change background:**
 ```javascript
-// In /frontend/src/pages/Login.jsx
-// Find the <Form> component and modify the fields
+// In /frontend/src/pages/Login.jsx or Register.jsx
+// Find the Card style and modify:
 
-<Form.Item name="email" rules={[...]}>
-  <Input placeholder="Enter your email" />
-</Form.Item>
+style={{
+  backgroundImage: 'url(/your-new-background.webp)',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+  backgroundRepeat: 'no-repeat'
+}}
 ```
 
 ---
@@ -72,10 +96,10 @@ The project is divided into two main parts:
 // Find the stats calculation and add new fields
 
 const stats = {
-  totalMaterials: await Material.countDocuments(),
-  activeMaterials: await Material.countDocuments({ isActive: true }),
+  totalMaterials: rows.length,
+  activeMaterials: rows.filter(m => m.is_active).length,
   // Add your new stat here
-  inactiveMaterials: await Material.countDocuments({ isActive: false })
+  inactiveMaterials: rows.filter(m => !m.is_active).length
 };
 ```
 
@@ -83,21 +107,44 @@ const stats = {
 
 ### 3. Material List and Table
 
-**What to modify:** Table columns, search filters, pagination
+**What to modify:** Table columns, search filters, pagination, vertical button layout
 
 **Files to edit:**
 - `/frontend/src/pages/Materials.jsx` - Material list page
+- `/frontend/src/utils/dropdownFilter.js` - Hidden dropdown filtering utility
 - `/backend/routes/materials.js` - Material data fetching
+
+**Current features:**
+- Vertical action buttons (Edit/Delete stacked to save space)
+- Hidden dropdown filtering (shows "-" for hidden dropdowns)
+- English error messages
+- Image column with proper width
+- Horizontal scroll for responsive layout
 
 **Example changes:**
 - Add new column to the table
 - Change number of items per page
 - Add new filter options
 - Modify search behavior
+- Change button layout back to horizontal if needed
 
 **How to:**
 ```javascript
 // In /frontend/src/pages/Materials.jsx
+// Find the columns array and add new column
+
+const columns = [
+  { title: 'No', dataIndex: 'index', key: 'index', width: 60 },
+  { title: 'Material Name', dataIndex: 'materialName', key: 'materialName' },
+  // Add new column here
+  { 
+    title: 'Created Date', 
+    dataIndex: 'createdAt', 
+    key: 'createdAt',
+    render: (date) => new Date(date).toLocaleDateString()
+  }
+];
+```
 // Find the columns array and add new column
 
 const columns = [
@@ -121,8 +168,14 @@ const columns = [
 
 **Files to edit:**
 - `/frontend/src/components/MaterialForm.jsx` - Material form UI
+- `/frontend/src/utils/dropdownFilter.js` - Dropdown filtering utility
 - `/backend/routes/materials.js` - Material creation/update logic
 - `/backend/models/Material.js` - Material database schema
+
+**Current features:**
+- Hidden dropdown filtering in dropdown selects
+- Image upload with preview
+- Form validation with English messages
 
 **Example changes:**
 - Add new input field (e.g., "Price", "Quantity")
@@ -135,15 +188,15 @@ const columns = [
 Step 1: Add to database schema
 ```javascript
 // In /backend/models/Material.js
-const materialSchema = new mongoose.Schema({
-  materialName: String,
-  materialNumber: String,
-  // Add new field here
-  price: {
-    type: Number,
-    default: 0
-  }
-});
+static async create(materialData) {
+  const query = `
+    INSERT INTO materials 
+    (material_name, material_number, material_owner, material_placement, 
+     material_function, images, price)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+  `;
+  // Add price to the values array
+}
 ```
 
 Step 2: Add to form
@@ -164,17 +217,32 @@ Step 2: Add to form
 
 ### 5. Dropdown Settings (Division & Placement)
 
-**What to modify:** Dropdown management, add new dropdown types
+**What to modify:** Dropdown management, add new dropdown types, handle hidden dropdowns
 
 **Files to edit:**
 - `/frontend/src/pages/Dropdowns.jsx` - Dropdown management UI
+- `/frontend/src/utils/dropdownFilter.js` - Hidden dropdown utility functions
 - `/backend/routes/dropdowns.js` - Dropdown CRUD operations
 - `/backend/models/Dropdown.js` - Dropdown database schema
+
+**Current features:**
+- **Soft Delete**: Dropdowns can be deactivated/reactivated (is_active toggle)
+- **Frontend-only Deletion**: "Delete" button hides dropdowns using localStorage without database deletion
+- **Hidden Dropdown Filtering**: Hidden dropdowns don't appear in forms or material displays
+- Vertical action buttons (Edit/Deactivate/Delete stacked)
+- English error messages
+
+**How the Hidden Dropdown System works:**
+1. When user clicks "Delete" on an inactive dropdown, the ID is stored in localStorage key `hiddenDropdownIds`
+2. All components (Materials, Dropdowns, MaterialForm) filter out hidden dropdowns using `dropdownFilter.js` utilities
+3. Materials with hidden dropdowns show "-" instead of the dropdown value
+4. Hidden dropdowns remain in database but are invisible in UI
 
 **Example changes:**
 - Add new dropdown type (e.g., "Status", "Category")
 - Change how dropdown values are generated
 - Add validation for dropdown names
+- Modify the hiding mechanism
 
 **How to add new dropdown type:**
 
@@ -192,6 +260,21 @@ const items = [
 ```
 
 Step 2: Backend will automatically handle it (no changes needed)
+
+**How to manage hidden dropdowns:**
+```javascript
+// Import utility functions from dropdownFilter.js
+import { 
+  getHiddenDropdownIds,      // Get array of hidden IDs from localStorage
+  filterHiddenDropdowns,      // Filter array to exclude hidden dropdowns
+  isDropdownHidden            // Check if specific ID is hidden
+} from '../utils/dropdownFilter';
+
+// Usage example:
+const hiddenIds = getHiddenDropdownIds();
+const visibleDropdowns = filterHiddenDropdowns(allDropdowns);
+const isHidden = isDropdownHidden(dropdownId);
+```
 
 ---
 
@@ -256,17 +339,27 @@ const items = [
 
 ### 8. Session and Authentication
 
-**What to modify:** Session timeout, password requirements, login validation
+**What to modify:** Session timeout, password requirements, login validation, registration
 
 **Files to edit:**
 - `/backend/server.js` - Session configuration
-- `/backend/routes/auth.js` - Authentication logic
+- `/backend/config/database.js` - Database and session store configuration
+- `/backend/routes/auth.js` - Authentication and registration logic
 - `/backend/models/User.js` - User model and password hashing
+- `/frontend/src/pages/Register.jsx` - Registration page
+
+**Current features:**
+- User registration with email and password
+- Password confirmation validation
+- Session storage in PostgreSQL
+- 24-hour session timeout
+- Bcrypt password hashing
 
 **Example changes:**
 - Change session timeout (default: 24 hours)
 - Modify password requirements
 - Add "Remember Me" functionality
+- Require additional registration fields (name, phone, etc.)
 
 **How to:**
 ```javascript
@@ -291,6 +384,25 @@ app.use(session({
 - `/frontend/public/index.html` - Page title
 - `/frontend/public/manifest.json` - App name
 - `/frontend/src/components/Navbar.jsx` - Header text
+- `/frontend/src/pages/Login.jsx` - Login page title
+- `/frontend/src/pages/Register.jsx` - Registration page title
+
+### Change Background Image
+
+**Files to edit:**
+- `/frontend/public/BG.webp` - Replace with your own image file
+- Keep the same filename or update the references in Login.jsx and Register.jsx
+
+**How to:**
+```javascript
+// In Login.jsx or Register.jsx
+// Change the backgroundImage URL
+style={{
+  backgroundImage: 'url(/your-new-image.jpg)',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center'
+}}
+```
 
 ### Change Color Theme
 
@@ -346,16 +458,35 @@ new Date(material.createdAt).toLocaleDateString('en-US', {
 **Step 1:** Update Material model
 ```javascript
 // In /backend/models/Material.js
-const materialSchema = new mongoose.Schema({
-  // ... existing fields
-  yourNewField: {
-    type: String,
-    required: false
-  }
-});
+// Update the create and update methods to include your new field
+static async create(materialData) {
+  const query = `
+    INSERT INTO materials 
+    (material_name, material_number, material_owner, material_placement, 
+     material_function, images, your_new_field)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING *
+  `;
+  const values = [
+    materialData.materialName,
+    materialData.materialNumber,
+    materialData.materialOwner,
+    materialData.materialPlacement,
+    materialData.materialFunction,
+    JSON.stringify(materialData.images || []),
+    materialData.yourNewField
+  ];
+  // ... rest of the code
+}
 ```
 
-**Step 2:** Update Material form
+**Step 2:** Update database schema
+```sql
+-- Run this in your PostgreSQL database
+ALTER TABLE materials ADD COLUMN your_new_field VARCHAR(255);
+```
+
+**Step 3:** Update Material form
 ```javascript
 // In /frontend/src/components/MaterialForm.jsx
 <Form.Item label="Your New Field" name="yourNewField">
@@ -363,27 +494,47 @@ const materialSchema = new mongoose.Schema({
 </Form.Item>
 ```
 
-**Step 3:** Update Material table (optional)
+**Step 4:** Update Material table (optional)
 ```javascript
 // In /frontend/src/pages/Materials.jsx
 // Add new column to display the field
 ```
 
-### Create New Collection (Database Table)
+### Create New Table
 
-**Step 1:** Create new model file
-```javascript
-// Create /backend/models/YourModel.js
-const mongoose = require('mongoose');
-
-const yourSchema = new mongoose.Schema({
-  name: String
-}, { timestamps: true });
-
-module.exports = mongoose.model('YourModel', yourSchema);
+**Step 1:** Create table in PostgreSQL
+```sql
+CREATE TABLE your_table (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-**Step 2:** Create routes file
+**Step 2:** Create new model file
+```javascript
+// Create /backend/models/YourModel.js
+const pool = require('../config/database');
+
+class YourModel {
+  static async findAll() {
+    const result = await pool.query('SELECT * FROM your_table WHERE is_active = true');
+    return result.rows;
+  }
+  
+  static async create(data) {
+    const query = 'INSERT INTO your_table (name) VALUES ($1) RETURNING *';
+    const result = await pool.query(query, [data.name]);
+    return result.rows[0];
+  }
+}
+
+module.exports = YourModel;
+```
+
+**Step 3:** Create routes file
 ```javascript
 // Create /backend/routes/yourRoutes.js
 const express = require('express');
@@ -391,13 +542,18 @@ const router = express.Router();
 const YourModel = require('../models/YourModel');
 
 router.get('/', async (req, res) => {
-  // Your logic here
+  try {
+    const items = await YourModel.findAll();
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;
 ```
 
-**Step 3:** Register routes in server
+**Step 4:** Register routes in server
 ```javascript
 // In /backend/server.js
 const yourRoutes = require('./routes/yourRoutes');
@@ -418,7 +574,82 @@ app.use('/api/your-endpoint', yourRoutes);
 **Backend changes:**
 1. Check terminal for errors
 2. Restart backend server (Ctrl + C, then `node server.js`)
-3. Check if MongoDB is connected
+3. Check if PostgreSQL database is connected
+
+### Can't Find Where to Edit
+
+**Strategy:**
+1. Search for the text you see on the screen in the codebase
+2. Look for similar functionality in existing files
+3. Check console.log() to trace the code flow
+4. Use browser DevTools to inspect elements and find component names
+
+### Hidden Dropdown Issues
+
+**Problem:** Dropdowns not hiding properly or showing when they shouldn't
+
+**Solution:**
+1. Check localStorage in browser DevTools (Application > Local Storage)
+2. Look for key `hiddenDropdownIds` - should be array of numbers
+3. Clear localStorage and refresh if data is corrupted: `localStorage.clear()`
+4. Verify dropdownFilter.js utility is imported in all components
+
+### Background Image Not Showing
+
+**Problem:** BG.webp not displaying on Login/Register pages
+
+**Solution:**
+1. Verify file exists at `/frontend/public/BG.webp`
+2. Check file permissions and size (should be ~281KB)
+3. Clear browser cache (Cmd/Ctrl + Shift + R)
+4. Check browser console for 404 errors
+
+### Breaking Changes
+
+**Before making changes:**
+1. Create a backup of the file you're editing
+2. Test on a development branch first
+3. Use Git to track changes: `git status`, `git diff`
+
+**If something breaks:**
+1. Check browser console and terminal for error messages
+2. Use Git to see what changed: `git diff`
+3. Revert changes if needed: `git checkout -- <filename>`
+
+---
+
+## Testing Scripts
+
+The project includes automated testing scripts located in the `/testing` folder:
+
+- `consistency-test.sh` - Tests data consistency across the application
+- `start-server.sh` - Convenient script to start the backend server
+- `test-correlation.sh` - Tests correlation between related data
+- `test-frontend-workflow.sh` - Tests frontend user workflows
+- `test-soft-delete.sh` - Tests soft delete functionality
+
+**How to run tests:**
+```bash
+cd testing
+bash test-soft-delete.sh  # Run specific test
+```
+
+---
+
+## Documentation Files
+
+Technical documentation is organized in the `/dokumentasi` folder:
+
+- **API_TEST_RESULTS.md** - API endpoint testing results
+- **FINAL_CONSISTENCY_AUDIT.md** - Final consistency audit report
+- **FRONTEND_AND_UPLOAD_TEST.md** - Frontend and upload feature testing
+- **FRONTEND_BROWSER_TEST.md** - Browser compatibility testing
+- **MIGRATION_SUMMARY.md** - Database migration documentation
+- **REGISTRATION_FEATURE.md** - User registration feature documentation
+- **SOFT_DELETE_IMPLEMENTATION.md** - Soft delete implementation details
+- **SOFT_DELETE_SUMMARY.md** - Soft delete feature summary
+- **TIMESTAMP_AND_CORRELATION_AUDIT.md** - Timestamp and data correlation audit
+- **audit-report.md** - General audit report
 
 ### Can't Find Where to Edit
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Tabs, Table, Button, Input, Space, message, Modal, Form, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Layout, Tabs, Table, Button, Input, Space, message, Modal, Form, Popconfirm, Tag } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
-import { getDropdowns, createDropdown, updateDropdown, deleteDropdown } from '../utils/api';
+import { getDropdowns, createDropdown, updateDropdown, deleteDropdown, toggleDropdown } from '../utils/api';
+import { getHiddenDropdownIds, filterHiddenDropdowns } from '../utils/dropdownFilter';
 
 const { Content } = Layout;
 
@@ -14,6 +15,9 @@ function Dropdowns({ user, onLogout }) {
   const [divisions, setDivisions] = useState([]);
   const [placements, setPlacements] = useState([]);
   
+  // Track IDs that are "deleted" (hidden from UI) - persist in localStorage
+  const [hiddenIds, setHiddenIds] = useState(() => getHiddenDropdownIds());
+  
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -22,18 +26,22 @@ function Dropdowns({ user, onLogout }) {
   // Fetch data saat component dimount atau tab berubah
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, hiddenIds]);
 
   // Fungsi fetch data berdasarkan tipe
   const fetchData = async () => {
     setLoading(true);
     try {
-      const divData = await getDropdowns('division');
-      const placeData = await getDropdowns('placement');
-      setDivisions(divData);
-      setPlacements(placeData);
+      // Fetch all dropdowns including inactive ones (show all except manually hidden)
+      const divData = await getDropdowns('division', false);
+      const placeData = await getDropdowns('placement', false);
+      
+      // Filter out manually hidden items using utility function
+      setDivisions(filterHiddenDropdowns(divData));
+      setPlacements(filterHiddenDropdowns(placeData));
     } catch (error) {
-      message.error('Gagal memuat data: ' + error);
+      message.error('Failed to load data: ' + error);
     } finally {
       setLoading(false);
     }
@@ -69,7 +77,7 @@ function Dropdowns({ user, onLogout }) {
 
       if (editingItem) {
         // Update
-        await updateDropdown(editingItem._id, data);
+        await updateDropdown(editingItem.id || editingItem._id, data);
         message.success('Option updated successfully');
       } else {
         // Create
@@ -85,14 +93,42 @@ function Dropdowns({ user, onLogout }) {
   };
 
   // Handle delete
+  // No longer used - keeping for backward compatibility
+  // eslint-disable-next-line no-unused-vars
   const handleDelete = async (id) => {
     try {
       await deleteDropdown(id);
-      message.success('Option deleted successfully');
+      message.success('Option deactivated successfully');
       fetchData();
     } catch (error) {
-      message.error('Failed to delete option: ' + error);
+      message.error('Failed to deactivate option: ' + error);
     }
+  };
+
+  // Handle toggle status (activate/deactivate)
+  const handleToggle = async (id, currentStatus) => {
+    try {
+      await toggleDropdown(id);
+      message.success(`Option ${currentStatus ? 'deactivated' : 'activated'} successfully`);
+      fetchData();
+    } catch (error) {
+      message.error('Failed to toggle option status: ' + error);
+    }
+  };
+
+  // Handle permanent delete (hide from UI)
+  const handlePermanentDelete = async (id, isActive) => {
+    // Check if dropdown is still active
+    if (isActive) {
+      message.warning('Deactivate first before deleting any values');
+      return;
+    }
+
+    // Hide from UI by adding to hiddenIds and save to localStorage
+    const newHiddenIds = [...hiddenIds, id];
+    setHiddenIds(newHiddenIds);
+    localStorage.setItem('hiddenDropdownIds', JSON.stringify(newHiddenIds));
+    message.success('Option removed from list successfully');
   };
 
   // Table columns
@@ -109,30 +145,60 @@ function Dropdowns({ user, onLogout }) {
       key: 'label',
     },
     {
+      title: 'Status',
+      key: 'status',
+      width: 100,
+      render: (_, record) => (
+        <Tag color={record.isActive ? 'green' : 'red'} icon={record.isActive ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
+          {record.isActive ? 'Active' : 'Inactive'}
+        </Tag>
+      ),
+    },
+    {
       title: 'Actions',
       key: 'actions',
       width: 150,
       render: (_, record) => (
-        <Space>
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
           <Button
             type="primary"
             icon={<EditOutlined />}
             size="small"
             onClick={() => handleOpenModal(record)}
+            block
           >
             Edit
           </Button>
           <Popconfirm
-            title="Delete Option"
-            description="Are you sure you want to delete this option?"
-            onConfirm={() => handleDelete(record._id)}
+            title={record.isActive ? 'Deactivate Option' : 'Activate Option'}
+            description={record.isActive ? 'This option will be hidden from forms but data remains in database.' : 'This option will be visible in forms again.'}
+            onConfirm={() => handleToggle(record.id || record._id, record.isActive)}
             okText="Yes"
             cancelText="No"
+          >
+            <Button
+              danger={record.isActive}
+              type={record.isActive ? 'default' : 'primary'}
+              icon={record.isActive ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
+              size="small"
+              block
+            >
+              {record.isActive ? 'Deactivate' : 'Activate'}
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title="Permanently Delete Option"
+            description={record.isActive ? "You must deactivate this option first before deleting." : "This will permanently delete this option from database. This cannot be undone!"}
+            onConfirm={() => handlePermanentDelete(record.id || record._id, record.isActive)}
+            okText="Yes"
+            cancelText="No"
+            okButtonProps={{ danger: true }}
           >
             <Button
               danger
               icon={<DeleteOutlined />}
               size="small"
+              block
             >
               Delete
             </Button>
@@ -166,7 +232,7 @@ function Dropdowns({ user, onLogout }) {
           <Table
             columns={columns}
             dataSource={divisions}
-            rowKey="_id"
+            rowKey={(record) => record.id || record._id}
             loading={loading}
             pagination={false}
           />
@@ -195,7 +261,7 @@ function Dropdowns({ user, onLogout }) {
           <Table
             columns={columns}
             dataSource={placements}
-            rowKey="_id"
+            rowKey={(record) => record.id || record._id}
             loading={loading}
             pagination={false}
           />

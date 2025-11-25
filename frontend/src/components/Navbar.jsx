@@ -27,19 +27,19 @@ function Navbar({ user, onLogout }) {
       // Panggil logout API
       await logout();
       
-      // Clear user data dari localStorage
+      // Clear user data from localStorage
       localStorage.removeItem('user');
       
-      // Clear user state di App.js
+      // Clear user state in App.js
       if (onLogout) onLogout();
       
-      // Tampilkan success message
-      message.success('Logout berhasil');
+      // Show success message
+      message.success('Logout successful');
       
-      // Redirect ke login page
+      // Redirect to login page
       navigate('/login', { replace: true });
     } catch (error) {
-      // Jika logout API gagal, tetap clear localStorage dan redirect
+      // If logout API fails, still clear localStorage and redirect
       console.error('Logout error:', error);
       localStorage.removeItem('user');
       if (onLogout) onLogout();

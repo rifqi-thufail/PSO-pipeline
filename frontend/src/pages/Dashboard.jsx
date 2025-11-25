@@ -119,7 +119,7 @@ function Dashboard({ user, onLogout }) {
         <Card title="Recent Materials" style={{ marginBottom: '24px' }}>
           <Row gutter={[16, 16]}>
             {stats?.recentMaterials?.map((material) => (
-              <Col xs={24} sm={12} md={8} lg={6} key={material._id}>
+              <Col xs={24} sm={12} md={8} lg={6} key={material.id || material._id}>
                 <Card
                   hoverable
                   cover={
@@ -149,6 +149,15 @@ function Dashboard({ user, onLogout }) {
                       <>
                         <div><strong>No:</strong> {material.materialNumber}</div>
                         <div><strong>Division:</strong> {material.divisionId?.label}</div>
+                        <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+                          <strong>Created:</strong> {material.createdAt ? new Date(material.createdAt).toLocaleString('id-ID', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '-'}
+                        </div>
                       </>
                     }
                   />

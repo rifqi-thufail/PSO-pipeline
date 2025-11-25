@@ -29,9 +29,17 @@ const storage = multer.diskStorage({
 
 // File filter - hanya terima jpg dan png
 const fileFilter = (req, file, cb) => {
+  console.log('File upload attempt:', {
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    extname: path.extname(file.originalname).toLowerCase()
+  });
+  
   const allowedTypes = /jpeg|jpg|png/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
+
+  console.log('Validation result:', { extname, mimetype });
 
   if (extname && mimetype) {
     cb(null, true);
@@ -47,45 +55,36 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // Max 5MB
 });
 
-// ======================================
-// GET /api/materials
-// Get all materials dengan pagination dan filter
-// ======================================
 router.get('/', isAuthenticated, async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', divisionId, placementId } = req.query;
 
-    // Build query filter - TAMPILKAN SEMUA MATERIAL (active dan inactive)
-    const filter = {};
+    const filters = {
+      search,
+      divisionId,
+      placementId,
+      limit: parseInt(limit),
+      offset: (parseInt(page) - 1) * parseInt(limit)
+    };
 
-    // Search by name or number
-    if (search) {
-      filter.$or = [{ materialName: { $regex: search, $options: 'i' } }, { materialNumber: { $regex: search, $options: 'i' } }];
-    }
+    const materials = await Material.findAll(filters);
+    const total = await Material.count({ search, divisionId, placementId });
 
-    // Filter by division
-    if (divisionId) {
-      filter.divisionId = divisionId;
-    }
-
-    // Filter by placement
-    if (placementId) {
-      filter.placementId = placementId;
-    }
-
-    // Execute query dengan pagination
-    const materials = await Material.find(filter)
-      .populate('divisionId', 'label value')
-      .populate('placementId', 'label value')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    // Count total documents
-    const total = await Material.countDocuments(filter);
+    const formattedMaterials = materials.map(m => ({
+      id: m.id,
+      materialName: m.material_name,
+      materialNumber: m.material_number,
+      divisionId: m.division,
+      placementId: m.placement,
+      function: m.function,
+      images: m.images || [],
+      isActive: m.is_active,
+      createdAt: m.created_at,
+      updatedAt: m.updated_at
+    }));
 
     res.json({
-      materials,
+      materials: formattedMaterials,
       total,
       page: parseInt(page),
       totalPages: Math.ceil(total / limit),
@@ -96,51 +95,53 @@ router.get('/', isAuthenticated, async (req, res) => {
   }
 });
 
-// ======================================
-// GET /api/materials/:id
-// Get single material by ID
-// ======================================
 router.get('/:id', isAuthenticated, async (req, res) => {
   try {
-    const material = await Material.findById(req.params.id).populate('divisionId placementId');
+    const material = await Material.findById(req.params.id);
 
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    res.json(material);
+    const formatted = {
+      id: material.id,
+      materialName: material.material_name,
+      materialNumber: material.material_number,
+      divisionId: material.division,
+      placementId: material.placement,
+      function: material.function,
+      images: material.images || [],
+      isActive: material.is_active,
+      createdAt: material.created_at,
+      updatedAt: material.updated_at
+    };
+
+    res.json(formatted);
   } catch (error) {
     console.error('Get material error:', error);
     res.status(500).json({ error: 'Failed to fetch material' });
   }
 });
 
-// ======================================
-// POST /api/materials
-// Create new material
-// ======================================
 router.post('/', isAuthenticated, async (req, res) => {
   try {
-    console.log('📦 Received material data:', req.body);
+    console.log('Received material data:', req.body);
     const { materialName, materialNumber, divisionId, placementId, function: materialFunction } = req.body;
 
-    // Validasi input
     if (!materialName || !materialNumber || !divisionId || !placementId) {
-      console.log('❌ Validation failed:', { materialName, materialNumber, divisionId, placementId });
+      console.log('Validation failed:', { materialName, materialNumber, divisionId, placementId });
       return res.status(400).json({ 
         error: 'Please provide all required fields',
         received: { materialName, materialNumber, divisionId, placementId }
       });
     }
 
-    // Cek apakah material number sudah ada
-    const existing = await Material.findOne({ materialNumber });
+    const existing = await Material.findByNumber(materialNumber);
     if (existing) {
       return res.status(400).json({ error: 'Material number already exists' });
     }
 
-    // Buat material baru
-    const newMaterial = new Material({
+    const newMaterial = await Material.create({
       materialName,
       materialNumber,
       divisionId,
@@ -148,65 +149,78 @@ router.post('/', isAuthenticated, async (req, res) => {
       function: materialFunction,
     });
 
-    await newMaterial.save();
+    const materialWithRefs = await Material.findById(newMaterial.id);
 
-    // Populate references
-    await newMaterial.populate('divisionId placementId');
+    const formatted = {
+      id: materialWithRefs.id,
+      materialName: materialWithRefs.material_name,
+      materialNumber: materialWithRefs.material_number,
+      divisionId: materialWithRefs.division,
+      placementId: materialWithRefs.placement,
+      function: materialWithRefs.function,
+      images: materialWithRefs.images || [],
+      isActive: materialWithRefs.is_active,
+      createdAt: materialWithRefs.created_at,
+      updatedAt: materialWithRefs.updated_at
+    };
 
-    res.status(201).json(newMaterial);
+    res.status(201).json(formatted);
 
-    console.log(`✅ Material created: ${newMaterial.materialName}`);
+    console.log(`Material created: ${materialWithRefs.material_name}`);
   } catch (error) {
     console.error('Create material error:', error);
     res.status(500).json({ error: 'Failed to create material' });
   }
 });
 
-// ======================================
-// PUT /api/materials/:id
-// Update material
-// ======================================
 router.put('/:id', isAuthenticated, async (req, res) => {
   try {
     const { materialName, materialNumber, divisionId, placementId, function: materialFunction } = req.body;
 
-    // Cari material
     const material = await Material.findById(req.params.id);
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    // Cek apakah material number sudah dipakai material lain
-    if (materialNumber && materialNumber !== material.materialNumber) {
-      const existing = await Material.findOne({ materialNumber, _id: { $ne: req.params.id } });
-      if (existing) {
+    if (materialNumber && materialNumber !== material.material_number) {
+      const existing = await Material.findByNumber(materialNumber);
+      if (existing && existing.id !== parseInt(req.params.id)) {
         return res.status(400).json({ error: 'Material number already exists' });
       }
     }
 
-    // Update fields
-    if (materialName) material.materialName = materialName;
-    if (materialNumber) material.materialNumber = materialNumber;
-    if (divisionId) material.divisionId = divisionId;
-    if (placementId) material.placementId = placementId;
-    if (materialFunction !== undefined) material.function = materialFunction;
+    const updated = await Material.update(req.params.id, {
+      materialName,
+      materialNumber,
+      divisionId,
+      placementId,
+      function: materialFunction
+    });
 
-    await material.save();
-    await material.populate('divisionId placementId');
+    const materialWithRefs = await Material.findById(updated.id);
 
-    res.json(material);
+    const formatted = {
+      id: materialWithRefs.id,
+      materialName: materialWithRefs.material_name,
+      materialNumber: materialWithRefs.material_number,
+      divisionId: materialWithRefs.division,
+      placementId: materialWithRefs.placement,
+      function: materialWithRefs.function,
+      images: materialWithRefs.images || [],
+      isActive: materialWithRefs.is_active,
+      createdAt: materialWithRefs.created_at,
+      updatedAt: materialWithRefs.updated_at
+    };
 
-    console.log(`✅ Material updated: ${material.materialName}`);
+    res.json(formatted);
+
+    console.log(`Material updated: ${materialWithRefs.material_name}`);
   } catch (error) {
     console.error('Update material error:', error);
     res.status(500).json({ error: 'Failed to update material' });
   }
 });
 
-// ======================================
-// PATCH /api/materials/:id/toggle-status
-// Toggle active/inactive status
-// ======================================
 router.patch('/:id/toggle-status', isAuthenticated, async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -214,22 +228,33 @@ router.patch('/:id/toggle-status', isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    material.isActive = !material.isActive;
-    await material.save();
-    await material.populate('divisionId placementId');
+    const updated = await Material.update(req.params.id, {
+      isActive: !material.is_active
+    });
 
-    res.json(material);
-    console.log(`✅ Material status toggled: ${material.materialName} - Active: ${material.isActive}`);
+    const materialWithRefs = await Material.findById(updated.id);
+
+    const formatted = {
+      id: materialWithRefs.id,
+      materialName: materialWithRefs.material_name,
+      materialNumber: materialWithRefs.material_number,
+      divisionId: materialWithRefs.division,
+      placementId: materialWithRefs.placement,
+      function: materialWithRefs.function,
+      images: materialWithRefs.images || [],
+      isActive: materialWithRefs.is_active,
+      createdAt: materialWithRefs.created_at,
+      updatedAt: materialWithRefs.updated_at
+    };
+
+    res.json(formatted);
+    console.log(`Material status toggled: ${materialWithRefs.material_name} - Active: ${materialWithRefs.is_active}`);
   } catch (error) {
     console.error('Toggle status error:', error);
     res.status(500).json({ error: 'Failed to toggle status' });
   }
 });
 
-// ======================================
-// DELETE /api/materials/:id
-// Delete material dan gambarnya
-// ======================================
 router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -237,33 +262,28 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    // Hapus semua gambar dari filesystem
-    material.images.forEach((image) => {
+    const images = material.images || [];
+    images.forEach((image) => {
       const imagePath = path.join(__dirname, '..', image.url);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
     });
 
-    // Hapus material dari database
-    await Material.findByIdAndDelete(req.params.id);
+    await Material.delete(req.params.id);
 
     res.json({
       success: true,
       message: 'Material deleted successfully',
     });
 
-    console.log(`✅ Material deleted: ${material.materialName}`);
+    console.log(`Material deleted: ${material.material_name}`);
   } catch (error) {
     console.error('Delete material error:', error);
     res.status(500).json({ error: 'Failed to delete material' });
   }
 });
 
-// ======================================
-// POST /api/materials/:id/images
-// Upload images untuk material (max 5 images)
-// ======================================
 router.post('/:id/images', isAuthenticated, upload.array('images', 5), async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -271,99 +291,121 @@ router.post('/:id/images', isAuthenticated, upload.array('images', 5), async (re
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    // Cek jumlah gambar yang sudah ada
-    if (material.images.length + req.files.length > 5) {
+    const existingImages = material.images || [];
+    if (existingImages.length + req.files.length > 5) {
       return res.status(400).json({ error: 'Maximum 5 images allowed per material' });
     }
 
-    // Tambahkan gambar baru
-    const newImages = req.files.map((file, index) => ({
-      url: `/uploads/materials/${file.filename}`,
-      isPrimary: material.images.length === 0 && index === 0, // Set first image as primary if no images exist
-    }));
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const imageUrl = `/uploads/materials/${file.filename}`;
+      const isPrimary = existingImages.length === 0 && i === 0;
+      await Material.addImage(req.params.id, imageUrl, isPrimary);
+    }
 
-    material.images.push(...newImages);
-    await material.save();
+    const updatedMaterial = await Material.findById(req.params.id);
+
+    const formatted = {
+      id: updatedMaterial.id,
+      materialName: updatedMaterial.material_name,
+      materialNumber: updatedMaterial.material_number,
+      divisionId: updatedMaterial.division,
+      placementId: updatedMaterial.placement,
+      function: updatedMaterial.function,
+      images: updatedMaterial.images || [],
+      isActive: updatedMaterial.is_active,
+      createdAt: updatedMaterial.created_at,
+      updatedAt: updatedMaterial.updated_at
+    };
 
     res.json({
       success: true,
-      material,
+      material: formatted,
     });
 
-    console.log(`✅ ${req.files.length} image(s) uploaded for material: ${material.materialName}`);
+    console.log(`${req.files.length} image(s) uploaded for material: ${updatedMaterial.material_name}`);
   } catch (error) {
     console.error('Upload images error:', error);
     res.status(500).json({ error: 'Failed to upload images' });
   }
 });
 
-// ======================================
-// DELETE /api/materials/:id/images/:imageId
-// Delete single image
-// ======================================
-router.delete('/:id/images/:imageId', isAuthenticated, async (req, res) => {
+router.delete('/:id/images/:imageUrl(*)', isAuthenticated, async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    // Cari image
-    const image = material.images.id(req.params.imageId);
+    const imageUrl = `/${req.params.imageUrl}`;
+    const images = material.images || [];
+    const image = images.find(img => img.url === imageUrl);
+    
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    // Hapus file dari filesystem
-    const imagePath = path.join(__dirname, '..', image.url);
+    const imagePath = path.join(__dirname, '..', imageUrl);
     if (fs.existsSync(imagePath)) {
       fs.unlinkSync(imagePath);
     }
 
-    // Hapus dari database
-    material.images.pull(req.params.imageId);
-    await material.save();
+    await Material.removeImage(req.params.id, imageUrl);
 
     res.json({
       success: true,
       message: 'Image deleted successfully',
     });
 
-    console.log(`✅ Image deleted from material: ${material.materialName}`);
+    console.log(`Image deleted from material: ${material.material_name}`);
   } catch (error) {
     console.error('Delete image error:', error);
     res.status(500).json({ error: 'Failed to delete image' });
   }
 });
 
-// ======================================
-// PUT /api/materials/:id/images/:imageId/primary
-// Set image as primary
-// ======================================
-router.put('/:id/images/:imageId/primary', isAuthenticated, async (req, res) => {
+router.put('/:id/images/:imageUrl(*)/primary', isAuthenticated, async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
     }
 
-    // Reset semua isPrimary ke false
-    material.images.forEach((img) => {
-      img.isPrimary = false;
-    });
-
-    // Set image yang dipilih jadi primary
-    const image = material.images.id(req.params.imageId);
-    if (!image) {
+    const imageUrl = `/${req.params.imageUrl}`;
+    const images = material.images || [];
+    const targetImage = images.find(img => img.url === imageUrl);
+    
+    if (!targetImage) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    image.isPrimary = true;
-    await material.save();
+    const updatedImages = images.map(img => ({
+      ...img,
+      isPrimary: img.url === imageUrl
+    }));
+
+    const pool = require('../config/database');
+    await pool.query('UPDATE materials SET images = $1 WHERE id = $2', 
+      [JSON.stringify(updatedImages), req.params.id]);
+
+    const updatedMaterial = await Material.findById(req.params.id);
+
+    const formatted = {
+      id: updatedMaterial.id,
+      materialName: updatedMaterial.material_name,
+      materialNumber: updatedMaterial.material_number,
+      divisionId: updatedMaterial.division,
+      placementId: updatedMaterial.placement,
+      function: updatedMaterial.function,
+      images: updatedMaterial.images || [],
+      isActive: updatedMaterial.is_active,
+      createdAt: updatedMaterial.created_at,
+      updatedAt: updatedMaterial.updated_at
+    };
 
     res.json({
       success: true,
-      material,
+      material: formatted,
     });
   } catch (error) {
     console.error('Set primary image error:', error);

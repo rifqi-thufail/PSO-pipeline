@@ -5,6 +5,7 @@ import { checkAuth } from './utils/api';
 
 // Import pages
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Materials from './pages/Materials';
 import Dropdowns from './pages/Dropdowns';
@@ -97,6 +98,15 @@ function App() {
           element={
             <PublicRoute>
               <Login setUser={setUser} />
+            </PublicRoute>
+          } 
+        />
+
+        <Route 
+          path="/register" 
+          element={
+            <PublicRoute>
+              <Register />
             </PublicRoute>
           } 
         />

@@ -23,6 +23,16 @@ export const login = async (email, password) => {
   }
 };
 
+// Register new user
+export const register = async (name, email, password) => {
+  try {
+    const response = await api.post('/auth/register', { name, email, password });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.message || error.response?.data?.error || 'Registration failed';
+  }
+};
+
 // Logout user
 export const logout = async () => {
   try {
@@ -122,9 +132,11 @@ export const uploadMaterialImages = async (id, formData) => {
 };
 
 // Delete image dari material
-export const deleteMaterialImage = async (materialId, imageId) => {
+export const deleteMaterialImage = async (materialId, imageUrl) => {
   try {
-    const response = await api.delete(`/materials/${materialId}/images/${imageId}`);
+    // Remove leading slash from imageUrl for the API path
+    const imagePath = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
+    const response = await api.delete(`/materials/${materialId}/images/${imagePath}`);
     return response.data;
   } catch (error) {
     throw error.response?.data?.error || 'Failed to delete image';
@@ -136,9 +148,9 @@ export const deleteMaterialImage = async (materialId, imageId) => {
 // ============================================
 
 // Get dropdowns by type (division atau placement)
-export const getDropdowns = async (type) => {
+export const getDropdowns = async (type, activeOnly = true) => {
   try {
-    const response = await api.get(`/dropdowns/${type}`);
+    const response = await api.get(`/dropdowns/${type}?activeOnly=${activeOnly}`);
     return response.data;
   } catch (error) {
     throw error.response?.data?.error || 'Failed to fetch dropdowns';
@@ -165,13 +177,33 @@ export const updateDropdown = async (id, data) => {
   }
 };
 
-// Delete dropdown option
+// Delete dropdown option (soft delete - deactivate)
 export const deleteDropdown = async (id) => {
   try {
     const response = await api.delete(`/dropdowns/${id}`);
     return response.data;
   } catch (error) {
     throw error.response?.data?.error || 'Failed to delete dropdown';
+  }
+};
+
+// Toggle dropdown status (activate/deactivate)
+export const toggleDropdown = async (id) => {
+  try {
+    const response = await api.put(`/dropdowns/${id}/toggle`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.error || 'Failed to toggle dropdown status';
+  }
+};
+
+// Permanent delete dropdown (hard delete - only for inactive dropdowns)
+export const permanentDeleteDropdown = async (id) => {
+  try {
+    const response = await api.delete(`/dropdowns/${id}/permanent`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.error || 'Failed to permanently delete dropdown';
   }
 };
 

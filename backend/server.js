@@ -1,10 +1,10 @@
 // Import packages yang dibutuhkan
 const express = require('express');
-const mongoose = require('mongoose');
 const session = require('express-session');
-const MongoStore = require('connect-mongo');
+const pgSession = require('connect-pg-simple')(session);
 const cors = require('cors');
 const path = require('path');
+const pool = require('./config/database');
 require('dotenv').config();
 
 // Import routes
@@ -24,8 +24,8 @@ const PORT = process.env.PORT || 5000;
 // CORS - mengizinkan request dari frontend
 app.use(
   cors({
-    origin: 'http://localhost:3000', // URL frontend React
-    credentials: true, // Penting untuk session cookies
+    origin: 'http://localhost:3000',
+    credentials: true,
   })
 );
 
@@ -36,18 +36,18 @@ app.use(express.urlencoded({ extended: true }));
 // Session setup - untuk authentication
 app.use(
   session({
+    store: new pgSession({
+      pool: pool,
+      tableName: 'session',
+    }),
     secret: process.env.SESSION_SECRET || 'your-secret-key-here',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGODB_URI,
-      touchAfter: 24 * 3600, // lazy session update
-    }),
     cookie: {
-      maxAge: 24 * 60 * 60 * 1000, // 24 jam
+      maxAge: 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: false, // Set true jika pakai HTTPS
-      sameSite: 'lax', // Penting untuk CORS
+      secure: false,
+      sameSite: 'lax',
     },
   })
 );
@@ -63,20 +63,16 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ======================================
-// MONGODB CONNECTION
+// POSTGRESQL CONNECTION TEST
 // ======================================
 
-mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/material-management', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log('✅ MongoDB connected successfully');
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err);
-  });
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('PostgreSQL connection error:', err);
+  } else {
+    console.log('PostgreSQL connected successfully');
+  }
+});
 
 // ======================================
 // ROUTES
@@ -115,5 +111,5 @@ app.use((err, req, res, next) => {
 // ======================================
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

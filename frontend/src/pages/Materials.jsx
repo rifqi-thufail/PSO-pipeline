@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant
 import Navbar from '../components/Navbar';
 import MaterialForm from '../components/MaterialForm';
 import { getMaterials, deleteMaterial, getDropdowns, toggleMaterialStatus } from '../utils/api';
+import { isDropdownHidden } from '../utils/dropdownFilter';
 
 const { Content } = Layout;
 
@@ -49,7 +50,7 @@ function Materials({ user, onLogout }) {
       setDivisions(divData);
       setPlacements(placeData);
     } catch (error) {
-      message.error('Gagal memuat dropdown: ' + error);
+      message.error('Failed to load dropdowns: ' + error);
     }
   };
 
@@ -70,7 +71,7 @@ function Materials({ user, onLogout }) {
       setMaterials(data.materials);
       setTotal(data.total);
     } catch (error) {
-      message.error('Gagal memuat materials: ' + error);
+      message.error('Failed to load materials: ' + error);
     } finally {
       setLoading(false);
     }
@@ -144,12 +145,26 @@ function Materials({ user, onLogout }) {
       dataIndex: ['divisionId', 'label'],
       key: 'division',
       width: 180,
+      render: (text, record) => {
+        // Check if division is hidden (deleted from UI)
+        if (record.divisionId && isDropdownHidden(record.divisionId.id || record.divisionId._id)) {
+          return <Tag color="default">-</Tag>;
+        }
+        return text || '-';
+      },
     },
     {
       title: 'Placement',
       dataIndex: ['placementId', 'label'],
       key: 'placement',
       width: 150,
+      render: (text, record) => {
+        // Check if placement is hidden (deleted from UI)
+        if (record.placementId && isDropdownHidden(record.placementId.id || record.placementId._id)) {
+          return <Tag color="default">-</Tag>;
+        }
+        return text || '-';
+      },
     },
     {
       title: 'Function/Purpose',
@@ -162,8 +177,21 @@ function Materials({ user, onLogout }) {
       title: 'Images',
       dataIndex: 'images',
       key: 'images',
-      width: 80,
+      width: 100,
       render: (images) => images?.length || 0,
+    },
+    {
+      title: 'Created Date',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 150,
+      render: (date) => date ? new Date(date).toLocaleString('id-ID', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : '-',
     },
     {
       title: 'Status',
@@ -177,7 +205,7 @@ function Materials({ user, onLogout }) {
           <Switch
             size="small"
             checked={record.isActive}
-            onChange={() => handleToggleStatus(record._id, record.isActive)}
+            onChange={() => handleToggleStatus(record.id || record._id, record.isActive)}
             checkedChildren="ON"
             unCheckedChildren="OFF"
           />
@@ -187,21 +215,22 @@ function Materials({ user, onLogout }) {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 100,
       render: (_, record) => (
-        <Space>
+        <Space direction="vertical" size="small">
           <Button
             type="primary"
             icon={<EditOutlined />}
             size="small"
             onClick={() => handleOpenModal(record)}
+            block
           >
             Edit
           </Button>
           <Popconfirm
             title="Delete Material"
             description="Are you sure you want to delete this material?"
-            onConfirm={() => handleDelete(record._id)}
+            onConfirm={() => handleDelete(record.id || record._id)}
             okText="Yes"
             cancelText="No"
           >
@@ -209,6 +238,7 @@ function Materials({ user, onLogout }) {
               danger
               icon={<DeleteOutlined />}
               size="small"
+              block
             >
               Delete
             </Button>
@@ -267,7 +297,7 @@ function Materials({ user, onLogout }) {
                 }}
               >
                 {divisions.map(div => (
-                  <Select.Option key={div._id} value={div._id}>
+                  <Select.Option key={div.id || div._id} value={div.id || div._id}>
                     {div.label}
                   </Select.Option>
                 ))}
@@ -284,7 +314,7 @@ function Materials({ user, onLogout }) {
                 }}
               >
                 {placements.map(place => (
-                  <Select.Option key={place._id} value={place._id}>
+                  <Select.Option key={place.id || place._id} value={place.id || place._id}>
                     {place.label}
                   </Select.Option>
                 ))}
@@ -296,8 +326,9 @@ function Materials({ user, onLogout }) {
           <Table
             columns={columns}
             dataSource={materials}
-            rowKey="_id"
+            rowKey={(record) => record.id || record._id}
             loading={loading}
+            scroll={{ x: 1300 }}
             pagination={{
               current: page,
               pageSize: pageSize,

@@ -1,70 +1,76 @@
-const mongoose = require('mongoose');
+const pool = require('../config/database');
 const bcrypt = require('bcrypt');
 
-// Schema untuk User
-// Menyimpan data user dengan password terenkripsi
-const userSchema = new mongoose.Schema(
-  {
-    // Email user (wajib diisi dan unik)
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-
-    // Password terenkripsi dengan bcrypt
-    password: {
-      type: String,
-      required: true,
-    },
-
-    // Nama lengkap user
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    // Role user (default: "user")
-    role: {
-      type: String,
-      default: 'user',
-      enum: ['user', 'admin'],
-    },
+const User = {
+  async create(email, password, name, role = 'user') {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const query = `
+      INSERT INTO users (email, password, name, role)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, email, name, role, created_at, updated_at
+    `;
+    const values = [email.toLowerCase().trim(), hashedPassword, name.trim(), role];
+    const result = await pool.query(query, values);
+    return result.rows[0];
   },
-  {
-    timestamps: true, // Otomatis menambahkan createdAt dan updatedAt
-  }
-);
 
-// Method untuk hash password sebelum save
-userSchema.pre('save', async function (next) {
-  // Hanya hash password jika password baru atau diubah
-  if (!this.isModified('password')) return next();
+  async findByEmail(email) {
+    const query = 'SELECT * FROM users WHERE email = $1';
+    const result = await pool.query(query, [email.toLowerCase().trim()]);
+    return result.rows[0];
+  },
 
-  try {
-    // Hash password dengan salt rounds 10
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
+  async findById(id) {
+    const query = 'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1';
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+  },
 
-// Method untuk membandingkan password saat login
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  try {
-    const isMatch = await bcrypt.compare(candidatePassword, this.password);
-    console.log('Compare password:', candidatePassword, 'with hash:', this.password);
-    console.log('Result:', isMatch);
-    return isMatch;
-  } catch (error) {
-    console.error('comparePassword error:', error);
-    throw error;
+  async comparePassword(candidatePassword, hashedPassword) {
+    return await bcrypt.compare(candidatePassword, hashedPassword);
+  },
+
+  async update(id, updates) {
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (updates.name) {
+      fields.push(`name = $${paramCount}`);
+      values.push(updates.name.trim());
+      paramCount++;
+    }
+
+    if (updates.password) {
+      const hashedPassword = await bcrypt.hash(updates.password, 10);
+      fields.push(`password = $${paramCount}`);
+      values.push(hashedPassword);
+      paramCount++;
+    }
+
+    if (updates.role) {
+      fields.push(`role = $${paramCount}`);
+      values.push(updates.role);
+      paramCount++;
+    }
+
+    if (fields.length === 0) return null;
+
+    values.push(id);
+    const query = `
+      UPDATE users
+      SET ${fields.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, email, name, role, created_at, updated_at
+    `;
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  },
+
+  async delete(id) {
+    const query = 'DELETE FROM users WHERE id = $1';
+    await pool.query(query, [id]);
   }
 };
 
-// Export model
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;
