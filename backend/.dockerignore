@@ -1,0 +1,47 @@
+# Docker
+node_modules
+npm-debug.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Uploads (will use S3 in production)
+uploads/
+
+# Logs
+*.log
+logs/
+
+# Test files
+*.test.js
+test/
+coverage/
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+cookies.txt
+server.log
+createDemoUser.js
+testUser.js
+recreateUser.js
+finalCreateUser.js
+checkDropdowns.js

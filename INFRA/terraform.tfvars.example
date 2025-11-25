@@ -1,0 +1,45 @@
+# Example terraform.tfvars file
+# Copy this to terraform.tfvars and update with your values
+# DO NOT commit terraform.tfvars to git!
+
+# AWS Region
+aws_region = "ap-southeast-1"  # Singapore
+
+# Environment
+environment  = "prod"
+project_name = "material-mgmt"
+
+# Database Configuration
+db_name     = "material_management"
+db_username = "postgres"
+db_password = "CHANGE_THIS_SECURE_PASSWORD_123!"  # REQUIRED: Change this!
+
+# Session Secret
+session_secret = "CHANGE_THIS_RANDOM_SECRET_456!"  # REQUIRED: Change this!
+
+# Backend Configuration
+backend_port          = 5001
+backend_cpu           = 512
+backend_memory        = 1024
+backend_desired_count = 2
+
+# RDS Configuration
+db_instance_class       = "db.t3.micro"  # Free tier eligible
+db_allocated_storage    = 20
+enable_db_multi_az      = false  # Set true for production
+backup_retention_period = 7
+
+# Security
+allowed_cidr_blocks        = ["0.0.0.0/0"]  # Change to specific IPs in production
+enable_deletion_protection = false  # Set true for production
+
+# Optional: Custom Domain (requires ACM certificate)
+# domain_name     = "app.yourdomain.com"
+# certificate_arn = "arn:aws:acm:ap-southeast-1:123456789:certificate/xxx"
+
+# Additional Tags
+tags = {
+  Owner       = "DevOps Team"
+  CostCenter  = "Engineering"
+  Application = "MaterialManagement"
+}
