@@ -121,3 +121,4 @@ router.post('/register', async (req, res) => {
 });
 
 module.exports = router;
+const hello = 1;
