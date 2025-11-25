@@ -1,8 +1,18 @@
 import axios from 'axios';
 
+// Determine API base URL:
+// - In production (EC2): use relative '/api' since nginx proxies it
+// - In development: use localhost:5001
+const getBaseURL = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return '/api'; // nginx proxies /api to backend
+  }
+  return process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+};
+
 // Setup axios instance dengan base URL ke backend
 const api = axios.create({
-  baseURL: 'http://localhost:5001/api',
+  baseURL: getBaseURL(),
   withCredentials: true, // Penting! Untuk kirim session cookies
   headers: {
     'Content-Type': 'application/json',
