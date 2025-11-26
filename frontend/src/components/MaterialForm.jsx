@@ -225,7 +225,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
               {existingImages.map((img) => (
                 <div key={img.url} style={{ position: 'relative', display: 'inline-block' }}>
                   <img
-                    src={`http://localhost:5001${img.url}`}
+                    src={img.url}
                     alt="Material"
                     style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4 }}
                   />

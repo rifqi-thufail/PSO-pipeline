@@ -126,7 +126,7 @@ function Dashboard({ user, onLogout }) {
                     material.images && material.images.length > 0 ? (
                       <img
                         alt={material.materialName}
-                        src={`http://localhost:5001${material.images[0].url}`}
+                        src={material.images[0].url}
                         style={{ height: '200px', objectFit: 'cover' }}
                       />
                     ) : (
