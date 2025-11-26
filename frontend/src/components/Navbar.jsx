@@ -71,7 +71,7 @@ function Navbar({ user, onLogout }) {
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center',
-      background: '#001529',
+      background: '#000aaa',
       padding: '0 20px'
     }}>
       {/* Logo dan Title */}
