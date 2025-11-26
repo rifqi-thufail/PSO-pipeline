@@ -185,7 +185,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
         >
           <Select placeholder="Select material owner">
             {divisions.map(div => (
-              <Select.Option key={div._id} value={div._id}>
+              <Select.Option key={div.id || div._id} value={div.id || div._id}>
                 {div.label}
               </Select.Option>
             ))}
@@ -200,7 +200,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
         >
           <Select placeholder="Select placement location">
             {placements.map(place => (
-              <Select.Option key={place._id} value={place._id}>
+              <Select.Option key={place.id || place._id} value={place.id || place._id}>
                 {place.label}
               </Select.Option>
             ))}
