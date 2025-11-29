@@ -1,5 +1,11 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+
+// Load environment-specific config
+if (process.env.NODE_ENV === 'staging') {
+  require('dotenv').config({ path: '.env.staging' });
+} else {
+  require('dotenv').config();
+}
 
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
@@ -10,7 +16,7 @@ const pool = new Pool({
 });
 
 pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
+  console.log(`Connected to PostgreSQL database: ${pool.options.database}`);
 });
 
 pool.on('error', (err) => {

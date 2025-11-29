@@ -10,6 +10,15 @@ node_modules/
 frontend/build/
 dist/
 
+# Test coverage
+coverage/
+*/coverage/
+*.lcov
+*.coverage
+
+# Test artifacts
+.nyc_output
+
 # Logs
 logs
 *.log
@@ -32,6 +41,17 @@ backend/testUser.js
 backend/recreateUser.js
 backend/finalCreateUser.js
 backend/checkDropdowns.js
+
+# Session and cookie files
+backend/cookies.txt
+*.cookies
+test-cookies.txt
+
+# Feature workflow temp files
+.feature-workflow
+
+# Jest cache
+.jest/
 
 # Junk folder (unused files)
 JUNK/
