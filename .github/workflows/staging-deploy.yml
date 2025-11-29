@@ -1,0 +1,164 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ staging ]
+  pull_request:
+    branches: [ staging ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: material_management_staging
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/package-lock.json
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Setup test database
+      run: |
+        cd backend
+        PGPASSWORD=postgres psql -h localhost -U postgres -d material_management_staging -f schema.sql
+      env:
+        PGPASSWORD: postgres
+
+    - name: Run backend tests
+      run: |
+        cd backend
+        npm test
+      env:
+        NODE_ENV: test
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: material_management_staging
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        JWT_SECRET: test-jwt-secret
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test -- --coverage --watchAll=false
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd backend && npm ci
+        cd ../frontend && npm ci
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Deploy to Staging EC2
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.STAGING_EC2_HOST }}
+        username: ${{ secrets.STAGING_EC2_USER }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          # Navigate to application directory
+          cd /home/ubuntu/pso-pipeline-staging
+          
+          # Pull latest changes from staging branch
+          git fetch origin
+          git reset --hard origin/staging
+          
+          # Install/update backend dependencies
+          cd backend
+          npm ci --production
+          
+          # Install/update frontend dependencies and build
+          cd ../frontend
+          npm ci
+          npm run build
+          
+          # Copy built frontend to nginx directory
+          sudo rm -rf /var/www/html/staging/*
+          sudo cp -r build/* /var/www/html/staging/
+          
+          # Restart backend service with PM2
+          cd ../backend
+          pm2 restart pso-staging-backend || pm2 start server.js --name pso-staging-backend
+          
+          # Restart nginx to pick up frontend changes
+          sudo systemctl restart nginx
+          
+          # Health check
+          sleep 10
+          curl -f http://localhost:5001/health || exit 1
+          
+          echo "Staging deployment completed successfully"
+
+    - name: Verify Deployment
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.STAGING_EC2_HOST }}
+        username: ${{ secrets.STAGING_EC2_USER }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          # Check PM2 process status
+          pm2 list | grep pso-staging-backend || exit 1
+          
+          # Check nginx status
+          sudo systemctl is-active nginx || exit 1
+          
+          # Health check for backend
+          curl -f http://localhost:5001/health || exit 1
+          
+          echo "All staging services are healthy"
