@@ -83,6 +83,15 @@ app.get('/', (req, res) => {
   res.json({ message: 'Material Management API is running!' });
 });
 
+// Health check endpoint for Docker
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Mount API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/materials', materialRoutes);

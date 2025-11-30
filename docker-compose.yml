@@ -2,40 +2,43 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:13-alpine
-    container_name: pso-staging-postgres
+    image: postgres:15-alpine
+    container_name: pso-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: material_management_staging
       POSTGRES_USER: staging_user
       POSTGRES_PASSWORD: staging_password_2024
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     ports:
       - "5432:5432"
     networks:
-      - staging-network
+      - app-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U staging_user -d material_management_staging"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: pso-staging-backend
+    container_name: pso-backend
+    restart: unless-stopped
     environment:
+      - NODE_ENV=production
       - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=material_management_staging
       - DB_USER=staging_user
       - DB_PASSWORD=staging_password_2024
-      - DB_NAME=material_management_staging
-      - DB_PORT=5432
-      - NODE_ENV=staging
       - PORT=5001
-      - SESSION_SECRET=staging_session_secret_change_in_production
-      - CORS_ORIGIN=http://localhost:3000
+      - SESSION_SECRET=staging_session_secret_production
+      - CORS_ORIGIN=http://13.212.157.243
     ports:
       - "5001:5001"
     depends_on:
@@ -44,29 +47,32 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
-      - staging-network
+      - app-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/api/auth/check"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: pso-staging-frontend
+    container_name: pso-frontend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_BASE_URL=http://13.212.157.243:5001
     ports:
-      - "3000:3000"
+      - "80:80"
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - staging-network
+      - app-network
 
 volumes:
   postgres_data:
 
 networks:
-  staging-network:
+  app-network:
     driver: bridge

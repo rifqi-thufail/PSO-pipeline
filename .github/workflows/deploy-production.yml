@@ -1,0 +1,51 @@
+name: Deploy to Production EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        script: |
+          set -e
+          
+          # Navigate to project
+          cd /home/ubuntu/PSO-pipeline
+          
+          # Pull latest changes
+          git fetch origin
+          git reset --hard origin/main
+          git pull origin main
+          
+          # Stop existing containers
+          docker-compose down || true
+          
+          # Remove old images to save space
+          docker system prune -af
+          
+          # Build and start new containers
+          docker-compose up -d --build
+          
+          # Wait for services to be healthy
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Verify deployment
+          docker-compose ps
+          curl -f http://localhost/ || curl -f http://localhost:5001/health
+          
+          echo "🎉 Deployment completed successfully!"
