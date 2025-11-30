@@ -1,9 +1,10 @@
-name: Deploy to Production EC2
+# Temporarily disabled - using manual PM2 deployment instead
+# name: Deploy to Production EC2
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: [ main ]
+#   workflow_dispatch:
 
 jobs:
   deploy:

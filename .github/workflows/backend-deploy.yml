@@ -48,9 +48,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~/app/PSO-pipeline
+            cd ~/PSO-pipeline
             git pull origin main
             cd backend
             npm ci --omit=dev
-            pm2 restart backend || pm2 start server.js --name "backend"
+            pm2 restart pso-backend || pm2 start server.js --name "pso-backend"
             pm2 save

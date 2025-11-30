@@ -1,10 +1,11 @@
-name: Deploy to Staging
+# Temporarily disabled - using manual deployment instead
+# name: Deploy to Staging
 
-on:
-  push:
-    branches: [ staging ]
-  pull_request:
-    branches: [ staging ]
+# on:
+#   push:
+#     branches: [ staging ]
+#   pull_request:
+#     branches: [ staging ]
 
 jobs:
   test:
