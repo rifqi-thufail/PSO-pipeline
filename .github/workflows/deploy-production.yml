@@ -1,10 +1,85 @@
-# Temporarily disabled - using manual PM2 deployment instead
-# name: Deploy to Production EC2
+name: Deploy to Production EC2
 
-# on:
-#   push:
-#     branches: [ main ]
-#   workflow_dispatch:
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          REACT_APP_API_URL: http://${{ secrets.EC2_HOST || '13.212.157.243' }}/api
+        run: npm run build
+      
+      - name: Create build archive
+        working-directory: ./frontend
+        run: |
+          cd build
+          zip -r ../production-build.zip .
+      
+      - name: Deploy to Production EC2
+        run: |
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY || secrets.EC2_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST || '13.212.157.243' }} >> ~/.ssh/known_hosts
+          
+          # Transfer build
+          scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
+            frontend/production-build.zip \
+            ${{ secrets.EC2_USER || 'ubuntu' }}@${{ secrets.EC2_HOST || '13.212.157.243' }}:~/production-build.zip
+          
+          # Deploy production
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER || 'ubuntu' }}@${{ secrets.EC2_HOST || '13.212.157.243' }} << 'EOF'
+            
+            # Backup current deployment
+            sudo cp -r /var/www/html /var/www/html.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+            
+            # Deploy new version
+            sudo rm -rf /var/www/html/*
+            mkdir -p ~/deploy-production
+            unzip -q ~/production-build.zip -d ~/deploy-production/
+            sudo cp -r ~/deploy-production/* /var/www/html/
+            sudo chown -R www-data:www-data /var/www/html/
+            sudo chmod -R 755 /var/www/html/
+            
+            # Update backend
+            cd ~/PSO-pipeline
+            git pull origin main
+            cd backend
+            npm ci --omit=dev
+            pm2 restart pso-backend || pm2 start server.js --name "pso-backend"
+            pm2 save
+            
+            # Restart services
+            sudo systemctl restart nginx
+            
+            # Cleanup
+            rm -f ~/production-build.zip
+            rm -rf ~/deploy-production
+            
+            echo "Production deployment completed successfully!"
+          EOF
 
 jobs:
   deploy:

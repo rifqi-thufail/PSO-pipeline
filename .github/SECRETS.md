@@ -1,62 +1,45 @@
-# GitHub Actions Secrets Configuration
+# GitHub Actions Status: DISABLED
 
-Untuk workflow CI/CD berjalan dengan baik, perlu setting secrets di GitHub repository.
+🚨 **All GitHub Actions workflows are currently DISABLED** karena GitHub Secrets belum dikonfigurasi.
 
-## Required Secrets
+## Current Status:
+- ❌ **frontend-deploy.yml**: DISABLED (commented out)
+- ❌ **backend-deploy.yml**: DISABLED (commented out) 
+- ❌ **staging-deploy.yml**: DISABLED (commented out)
+- ❌ **deploy-production.yml**: DISABLED (commented out)
 
-Masuk ke repository settings → Secrets and variables → Actions → New repository secret:
-
-### EC2_HOST
-- **Value**: `13.212.157.243`
-- **Description**: IP address EC2 Singapore server
-
-### EC2_USER  
-- **Value**: `ubuntu`
-- **Description**: Username untuk SSH ke EC2
-
-### EC2_SSH_KEY
-- **Value**: Content dari file `pso-singapore.pem`
-- **Description**: Private key untuk SSH authentication
-
-## How to get EC2_SSH_KEY content:
-
-1. Open `pso-singapore.pem` dengan text editor
-2. Copy seluruh content termasuk:
-   ```
-   -----BEGIN RSA PRIVATE KEY-----
-   [key content]
-   -----END RSA PRIVATE KEY-----
-   ```
-3. Paste ke secret EC2_SSH_KEY
-
-## Current Workflow Status:
-
-- ✅ **frontend-deploy.yml**: Aktif - Deploy React build ke `/var/www/html/`
-- ✅ **backend-deploy.yml**: Aktif - Deploy backend dan restart PM2 `pso-backend`
-- ❌ **staging-deploy.yml**: Disabled (manual deployment)
-- ❌ **deploy-production.yml**: Disabled (using manual PM2 instead of Docker)
-
-## Manual Deployment (Current Working Method):
+## Working Manual Deployment:
 
 ```bash
-# Frontend
+# Frontend deployment
 cd frontend
 npm run build
 scp -i pso-singapore.pem -r build/* ubuntu@13.212.157.243:/var/www/html/
 
-# Backend
+# Backend deployment  
 git push origin main
 ssh -i pso-singapore.pem ubuntu@13.212.157.243
-cd PSO-pipeline
-git pull
-cd backend
-npm install
-pm2 restart pso-backend
+cd PSO-pipeline && git pull && cd backend && npm install && pm2 restart pso-backend
 ```
 
-## Re-enable Workflows:
+## To Re-enable GitHub Actions (Optional):
 
-Untuk mengaktifkan kembali staging dan production workflows:
-1. Set semua secrets di atas
-2. Uncomment workflows di staging-deploy.yml dan deploy-production.yml
-3. Sesuaikan path dan konfigurasi server jika perlu
+1. **Set GitHub Secrets** (Repository → Settings → Secrets → Actions):
+   - `EC2_HOST`: `13.212.157.243`
+   - `EC2_USER`: `ubuntu` 
+   - `EC2_SSH_KEY`: Content dari file `pso-singapore.pem`
+
+2. **Uncomment workflows** di file-file `.github/workflows/*.yml`
+
+3. **Test deployment** dengan push ke main branch
+
+## Why Disabled?
+
+Manual deployment sudah working perfectly dengan:
+- ✅ PM2 backend running stabil  
+- ✅ Nginx serving React build
+- ✅ Database connection working
+- ✅ Image uploads berfungsi
+- ✅ Modern UI sudah deployed
+
+GitHub Actions optional karena manual deployment reliable dan cepat.

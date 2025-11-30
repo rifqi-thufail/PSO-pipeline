@@ -1,0 +1,338 @@
+/* Modern Dashboard UI Improvements */
+
+/* 1. Depth and elevation with modern shadows */
+.dashboard-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  overflow: hidden;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 2. Enhanced spacing and breathing room */
+.dashboard-section {
+  padding: 32px 0;
+}
+
+.dashboard-content {
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-card .ant-card-body {
+  padding: 32px !important;
+}
+
+.dashboard-card-small .ant-card-body {
+  padding: 24px !important;
+}
+
+/* 3. Typography hierarchy with modern colors */
+.dashboard-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1E293B;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.025em;
+}
+
+.dashboard-subtitle {
+  font-size: 1.1rem;
+  color: #64748B;
+  margin: 0 0 40px 0;
+  font-weight: 400;
+}
+
+.dashboard-section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 0 0 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-section-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+}
+
+/* 4. Enhanced metric cards design */
+.metric-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  border: none;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3B82F6, #1D4ED8);
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.metric-icon-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.25);
+}
+
+.metric-icon-badge .anticon {
+  font-size: 24px;
+  color: white;
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748B;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #1E293B;
+  margin: 0 0 4px 0;
+  line-height: 1;
+}
+
+.metric-subtext {
+  font-size: 0.75rem;
+  color: #94A3B8;
+  margin: 0;
+}
+
+/* 5. Alternating background sections */
+.dashboard-section:nth-child(even) {
+  background-color: #F8FAFC;
+}
+
+.dashboard-section:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+/* 6. Material cards with enhanced styling */
+.material-card {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  background: white;
+}
+
+.material-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.material-card .ant-card-cover {
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+
+.material-card .ant-card-cover img {
+  border-radius: 16px 16px 0 0;
+  transition: transform 0.3s ease;
+}
+
+.material-card:hover .ant-card-cover img {
+  transform: scale(1.05);
+}
+
+.material-card .ant-card-body {
+  padding: 20px !important;
+}
+
+.material-card .ant-card-meta-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1E293B;
+  margin-bottom: 12px;
+}
+
+.material-card .ant-card-meta-description {
+  color: #64748B;
+  font-size: 0.875rem;
+}
+
+.division-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  color: #1D4ED8;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+/* 7. Division summary cards */
+.division-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+
+.division-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.division-count {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #3B82F6;
+  margin: 0 0 8px 0;
+}
+
+.division-name {
+  font-size: 0.875rem;
+  color: #64748B;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* 8. Loading state improvements */
+.dashboard-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  background: #F8FAFC;
+  border-radius: 16px;
+}
+
+/* 9. Micro-interactions and animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dashboard-section {
+  animation: fadeInUp 0.6s ease-out;
+  animation-fill-mode: both;
+}
+
+.dashboard-section:nth-child(1) { animation-delay: 0.1s; }
+.dashboard-section:nth-child(2) { animation-delay: 0.2s; }
+.dashboard-section:nth-child(3) { animation-delay: 0.3s; }
+.dashboard-section:nth-child(4) { animation-delay: 0.4s; }
+
+.metric-card {
+  animation: fadeIn 0.6s ease-out;
+  animation-fill-mode: both;
+}
+
+/* 10. Empty state styling */
+.empty-state {
+  text-align: center;
+  padding: 64px 32px;
+  color: #64748B;
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border-radius: 16px;
+  margin: 32px 0;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: #94A3B8;
+  font-size: 32px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 20px;
+  }
+  
+  .dashboard-title {
+    font-size: 2rem;
+  }
+  
+  .metric-card {
+    padding: 24px;
+  }
+  
+  .dashboard-section {
+    padding: 24px 0;
+  }
+}
+
+/* Override Ant Design defaults */
+.ant-layout {
+  background: #ffffff !important;
+}
+
+.ant-card {
+  border: none !important;
+}
+
+.ant-statistic-title {
+  color: #64748B !important;
+  font-weight: 500 !important;
+  margin-bottom: 8px !important;
+}

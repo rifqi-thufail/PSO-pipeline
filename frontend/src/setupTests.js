@@ -2,6 +2,7 @@
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
+import '@testing-library/jest-dom';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -41,6 +42,16 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
+
+// Mock console.warn for cleaner test output
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  // Only suppress localStorage warnings in tests
+  if (args[0]?.includes?.('localStorage')) {
+    return;
+  }
+  originalWarn(...args);
+};
 
 // Clean up after each test
 afterEach(() => {

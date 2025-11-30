@@ -1,17 +1,22 @@
 /* Custom styles for Navbar */
 .navbar-header {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 12px;
+  left: 16px;
+  right: 16px;
   z-index: 1000;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  border: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-header.scrolled {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%) !important;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.9) 0%, rgba(59, 130, 246, 0.9) 50%, rgba(147, 197, 253, 0.9) 100%) !important;
+  backdrop-filter: blur(25px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  border: none;
 }
 
 .navbar-logo {
@@ -23,19 +28,29 @@
 }
 
 .navbar-menu .ant-menu-item {
-  border-radius: 8px;
-  margin: 0 4px;
-  transition: all 0.3s ease;
+  border-radius: 12px;
+  margin: 0 6px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .navbar-menu .ant-menu-item:hover {
-  background: rgba(255,255,255,0.15) !important;
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border: none !important;
 }
 
 .navbar-menu .ant-menu-item-selected {
-  background: rgba(255,255,255,0.2) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
   color: white !important;
+  border: none !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-menu .ant-menu-item a {
@@ -49,14 +64,77 @@
   font-weight: 600;
 }
 
+/* Ensure no background on menu items by default */
+.navbar-menu .ant-menu-item::after {
+  display: none !important;
+}
+
+.navbar-menu {
+  background: transparent !important;
+}
+
+.navbar-menu .ant-menu {
+  background: transparent !important;
+}
+
+/* Override all Ant Design menu backgrounds */
+.navbar-menu .ant-menu-horizontal {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+.navbar-menu .ant-menu-horizontal > .ant-menu-item {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+.navbar-menu .ant-menu-horizontal > .ant-menu-item::after {
+  border-bottom: none !important;
+  content: none !important;
+}
+
+.navbar-menu .ant-menu-horizontal > .ant-menu-item:not(.ant-menu-item-selected):not(.ant-menu-item-disabled) {
+  background: transparent !important;
+}
+
+/* Force transparent background for all states except hover and selected */
+.navbar-menu .ant-menu-item:not(:hover):not(.ant-menu-item-selected) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Additional overrides for Ant Design menu */
+.navbar-menu .ant-menu-horizontal .ant-menu-item {
+  background: transparent !important;
+}
+
+.navbar-menu .ant-menu-horizontal .ant-menu-item-active {
+  background: transparent !important;
+}
+
+.navbar-menu .ant-menu-horizontal .ant-menu-item::before {
+  display: none !important;
+}
+
+/* Override any theme-based backgrounds */
+.navbar-menu .ant-menu.ant-menu-dark .ant-menu-item {
+  background: transparent !important;
+}
+
+.navbar-menu .ant-menu.ant-menu-dark .ant-menu-item:not(.ant-menu-item-selected):not(.ant-menu-submenu-selected) {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
 .user-dropdown {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .user-dropdown:hover {
-  background: rgba(255,255,255,0.2) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border: none !important;
 }
 
 .welcome-text {
@@ -72,11 +150,22 @@
   .navbar-menu {
     margin-left: 50px !important;
   }
+  
+  .navbar-header {
+    top: 20px;
+    left: 24px;
+    right: 24px;
+    border-radius: 20px;
+  }
 }
 
 @media (max-width: 767px) {
   .navbar-header {
+    top: 8px;
+    left: 12px;
+    right: 12px;
     padding: 0 16px !important;
+    border-radius: 14px;
   }
   
   .navbar-logo {
@@ -94,6 +183,13 @@
 }
 
 @media (max-width: 480px) {
+  .navbar-header {
+    top: 6px;
+    left: 8px;
+    right: 8px;
+    border-radius: 12px;
+  }
+  
   .navbar-logo {
     font-size: 14px !important;
   }
@@ -118,6 +214,7 @@
 /* Animation for page content */
 .page-content {
   animation: fadeInUp 0.6s ease-out;
+  margin-top: 20px;
 }
 
 @keyframes fadeInUp {
@@ -133,20 +230,22 @@
 
 /* Enhanced dropdown menu styling */
 .ant-dropdown .ant-dropdown-menu {
-  border-radius: 12px !important;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.15) !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  backdrop-filter: blur(10px) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  backdrop-filter: blur(20px) !important;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%) !important;
 }
 
 .ant-dropdown .ant-dropdown-menu-item {
-  border-radius: 8px !important;
-  margin: 4px 8px !important;
-  transition: all 0.3s ease !important;
+  border-radius: 10px !important;
+  margin: 6px 10px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .ant-dropdown .ant-dropdown-menu-item:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
   color: white !important;
-  transform: translateX(2px) !important;
+  transform: translateX(4px) !important;
 }

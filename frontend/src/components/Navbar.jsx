@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, message, Avatar, Dropdown } from 'antd';
-import { HomeOutlined, AppstoreOutlined, SettingOutlined, LogoutOutlined, UserOutlined, MenuOutlined } from '@ant-design/icons';
+import { Layout, message, Avatar, Dropdown } from 'antd';
+import { HomeOutlined, AppstoreOutlined, SettingOutlined, LogoutOutlined, MenuOutlined } from '@ant-design/icons';
 import { logout } from '../utils/api';
 import './Navbar.css';
 
@@ -82,14 +82,6 @@ function Navbar({ user, onLogout }) {
   // User dropdown menu
   const userMenuItems = [
     {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
-    },
-    {
-      type: 'divider',
-    },
-    {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: 'Logout',
@@ -104,24 +96,25 @@ function Navbar({ user, onLogout }) {
         className={`navbar-header ${scrolled ? 'scrolled' : ''}`}
         style={{ 
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
+          top: '20px',
+          left: '24px',
+          right: '24px',
           zIndex: 1000,
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
           background: scrolled 
-            ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%)'
-            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '0 24px',
+            ? 'linear-gradient(135deg, rgba(30, 58, 138, 0.9) 0%, rgba(59, 130, 246, 0.9) 50%, rgba(147, 197, 253, 0.9) 100%)'
+            : 'linear-gradient(135deg, rgba(30, 58, 138, 0.8) 0%, rgba(59, 130, 246, 0.8) 50%, rgba(147, 197, 253, 0.8) 100%)',
+          padding: '16px 28px',
           boxShadow: scrolled 
-            ? '0 4px 20px rgba(0,0,0,0.25)' 
-            : '0 2px 8px rgba(0,0,0,0.15)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          height: '64px',
-          transition: 'all 0.3s ease',
-          backdropFilter: scrolled ? 'blur(20px)' : 'none'
+            ? '0 12px 40px rgba(0, 0, 0, 0.15)' 
+            : '0 8px 32px rgba(0, 0, 0, 0.1)',
+          border: 'none',
+          height: '72px',
+          borderRadius: '20px',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          backdropFilter: scrolled ? 'blur(25px)' : 'blur(20px)'
         }}>
         {/* Logo dan Title */}
         <div 
@@ -139,37 +132,75 @@ function Navbar({ user, onLogout }) {
           onClick={() => navigate('/')}
         >
           <div style={{
-            width: '32px',
-            height: '32px',
-            background: 'rgba(255,255,255,0.2)',
-            borderRadius: '8px',
+            width: '36px',
+            height: '36px',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%)',
+            borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            backdropFilter: 'blur(10px)'
+            backdropFilter: 'blur(10px)',
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
           }}>
-            <AppstoreOutlined style={{ color: 'white', fontSize: '18px' }} />
+            <AppstoreOutlined style={{ color: 'white', fontSize: '20px' }} />
           </div>
           <span>Material Management</span>
         </div>
 
-        {/* Menu Navigation */}
-        <Menu
-          className="navbar-menu"
-          theme="dark"
-          mode="horizontal"
-          selectedKeys={[getSelectedKey()]}
-          items={menuItems}
-          style={{ 
-            flex: 1, 
-            minWidth: 0, 
-            marginLeft: '50px',
-            background: 'transparent',
-            border: 'none',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}
-        />
+        {/* Menu Navigation - Custom Implementation */}
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          marginLeft: '50px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          {menuItems.map((item) => (
+            <div
+              key={item.key}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '12px',
+                background: getSelectedKey() === item.key 
+                  ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%)'
+                  : 'transparent',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textDecoration: 'none'
+              }}
+              onMouseEnter={(e) => {
+                if (getSelectedKey() !== item.key) {
+                  e.target.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)';
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (getSelectedKey() !== item.key) {
+                  e.target.style.background = 'transparent';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }
+              }}
+              onClick={() => {
+                if (item.key === 'dashboard') navigate('/');
+                else if (item.key === 'materials') navigate('/materials');
+                else if (item.key === 'dropdowns') navigate('/dropdowns');
+              }}
+            >
+              {item.icon}
+              <span>{item.label.props.children}</span>
+            </div>
+          ))}
+        </div>
 
         {/* User info dan Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -195,19 +226,22 @@ function Navbar({ user, onLogout }) {
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '24px',
-                background: 'rgba(255,255,255,0.1)',
+                padding: '10px 16px',
+                borderRadius: '28px',
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%)',
                 cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)'
+                backdropFilter: 'blur(10px)',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
               }}>
               <Avatar 
-                size={32} 
+                size={36} 
                 style={{ 
-                  background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
                   color: 'white',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  border: 'none'
                 }}
               >
                 {(user?.name?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase()}
@@ -219,7 +253,7 @@ function Navbar({ user, onLogout }) {
       </Header>
       
       {/* Spacer to prevent content from going under fixed header */}
-      <div style={{ height: '64px' }} />
+      <div style={{ height: '112px' }} />
     </>
   );
 }
