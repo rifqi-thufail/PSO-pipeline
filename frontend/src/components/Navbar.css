@@ -1,0 +1,152 @@
+/* Custom styles for Navbar */
+.navbar-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.navbar-header.scrolled {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%) !important;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+
+.navbar-logo {
+  transition: all 0.3s ease;
+}
+
+.navbar-logo:hover {
+  transform: scale(1.05);
+}
+
+.navbar-menu .ant-menu-item {
+  border-radius: 8px;
+  margin: 0 4px;
+  transition: all 0.3s ease;
+}
+
+.navbar-menu .ant-menu-item:hover {
+  background: rgba(255,255,255,0.15) !important;
+  transform: translateY(-1px);
+}
+
+.navbar-menu .ant-menu-item-selected {
+  background: rgba(255,255,255,0.2) !important;
+  color: white !important;
+}
+
+.navbar-menu .ant-menu-item a {
+  color: rgba(255,255,255,0.9) !important;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.navbar-menu .ant-menu-item-selected a {
+  color: white !important;
+  font-weight: 600;
+}
+
+.user-dropdown {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-dropdown:hover {
+  background: rgba(255,255,255,0.2) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.welcome-text {
+  display: none;
+}
+
+/* Responsive design */
+@media (min-width: 768px) {
+  .welcome-text {
+    display: inline;
+  }
+  
+  .navbar-menu {
+    margin-left: 50px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .navbar-header {
+    padding: 0 16px !important;
+  }
+  
+  .navbar-logo {
+    font-size: 16px !important;
+  }
+  
+  .navbar-menu {
+    margin-left: 20px !important;
+  }
+  
+  .navbar-menu .ant-menu-item {
+    margin: 0 2px;
+    padding: 0 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-logo {
+    font-size: 14px !important;
+  }
+  
+  .navbar-logo span {
+    display: none;
+  }
+  
+  .navbar-menu {
+    margin-left: 10px !important;
+  }
+  
+  .navbar-menu .ant-menu-item {
+    padding: 0 8px !important;
+  }
+  
+  .navbar-menu .ant-menu-item span {
+    display: none;
+  }
+}
+
+/* Animation for page content */
+.page-content {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced dropdown menu styling */
+.ant-dropdown .ant-dropdown-menu {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.ant-dropdown .ant-dropdown-menu-item {
+  border-radius: 8px !important;
+  margin: 4px 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-dropdown .ant-dropdown-menu-item:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  transform: translateX(2px) !important;
+}

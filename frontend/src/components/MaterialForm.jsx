@@ -225,9 +225,12 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
               {existingImages.map((img) => (
                 <div key={img.url} style={{ position: 'relative', display: 'inline-block' }}>
                   <img
-                    src={img.url}
+                    src={`${window.location.origin}${img.url}`}
                     alt="Material"
                     style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4 }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
                   />
                   <Button
                     danger

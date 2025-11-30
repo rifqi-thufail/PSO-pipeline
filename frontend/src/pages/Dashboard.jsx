@@ -54,7 +54,7 @@ function Dashboard({ user, onLogout }) {
       <Navbar user={user} onLogout={onLogout} />
 
       {/* Main Content */}
-      <Content style={{ padding: '24px' }}>
+      <Content className="page-content" style={{ padding: '24px' }}>
         {/* Welcome Section */}
         <div style={{ marginBottom: '24px' }}>
           <h1>Welcome, {user?.name}!</h1>
@@ -126,8 +126,16 @@ function Dashboard({ user, onLogout }) {
                     material.images && material.images.length > 0 ? (
                       <img
                         alt={material.materialName}
-                        src={material.images[0].url}
+                        src={`${window.location.origin}${material.images[0].url}`}
                         style={{ height: '200px', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = `
+                            <div style="height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;">
+                              Image Not Available
+                            </div>
+                          `;
+                        }}
                       />
                     ) : (
                       <div style={{
