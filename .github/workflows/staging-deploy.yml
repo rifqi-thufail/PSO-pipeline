@@ -16,6 +16,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: material_management_staging
+          POSTGRES_USER: postgres
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -49,9 +50,12 @@ jobs:
     - name: Setup test database
       run: |
         cd backend
-        PGPASSWORD=postgres psql -h localhost -U postgres -d material_management_staging -f schema.sql
+        # Create staging user for tests
+        PGPASSWORD=postgres psql -h localhost -U postgres -d material_management_staging -c "CREATE USER staging_user WITH PASSWORD 'staging_password_2024'; GRANT ALL PRIVILEGES ON DATABASE material_management_staging TO staging_user;"
+        # Run schema setup
+        PGPASSWORD=staging_password_2024 psql -h localhost -U staging_user -d material_management_staging -f schema.sql
       env:
-        PGPASSWORD: postgres
+        PGPASSWORD: staging_password_2024
 
     - name: Run backend tests
       run: |
@@ -62,8 +66,8 @@ jobs:
         DB_HOST: localhost
         DB_PORT: 5432
         DB_NAME: material_management_staging
-        DB_USER: postgres
-        DB_PASSWORD: postgres
+        DB_USER: staging_user
+        DB_PASSWORD: staging_password_2024
         JWT_SECRET: test-jwt-secret
 
     - name: Run frontend tests
