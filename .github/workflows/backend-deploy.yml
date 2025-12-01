@@ -42,67 +42,6 @@ jobs:
     
     steps:
       - name: Deploy to EC2
-        run: |
-          # Setup SSH
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY || secrets.EC2_KEY }}" > ~/.ssh/ec2_key
-          chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST || '13.212.157.243' }} >> ~/.ssh/known_hosts
-          
-          # Deploy backend
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER || 'ubuntu' }}@${{ secrets.EC2_HOST || '13.212.157.243' }} << 'EOF'
-            
-            # Update repository
-            cd ~/PSO-pipeline
-            git pull origin main
-            
-            # Install dependencies
-            cd backend
-            npm ci --omit=dev
-            
-            # Restart PM2 process
-            pm2 restart pso-backend || pm2 start server.js --name "pso-backend"
-            pm2 save
-            
-            # Check status
-            pm2 status
-            
-            echo "Backend deployed successfully!"
-          EOF
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-      
-      - name: Install dependencies
-        working-directory: ./backend
-        run: npm ci
-      
-      - name: Run linter (if configured)
-        working-directory: ./backend
-        run: npm run lint --if-present
-      
-      - name: Run tests (if configured)
-        working-directory: ./backend
-        run: npm test --if-present
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -115,3 +54,5 @@ jobs:
             npm ci --omit=dev
             pm2 restart pso-backend || pm2 start server.js --name "pso-backend"
             pm2 save
+            pm2 status
+            echo "Backend deployed successfully!"

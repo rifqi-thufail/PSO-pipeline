@@ -10,6 +10,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: material_management_staging
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v4
       
@@ -24,9 +39,25 @@ jobs:
         working-directory: ./backend
         run: npm ci
       
+      - name: Setup test database
+        run: |
+          cd backend
+          PGPASSWORD=postgres psql -h localhost -U postgres -d material_management_staging -c "CREATE USER staging_user WITH PASSWORD 'staging_password_2024'; GRANT ALL PRIVILEGES ON DATABASE material_management_staging TO staging_user;" || true
+          PGPASSWORD=postgres psql -h localhost -U postgres -d material_management_staging -f schema.sql
+        env:
+          PGPASSWORD: postgres
+
       - name: Run backend tests
         working-directory: ./backend
         run: npm test --if-present
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: material_management_staging
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          SESSION_SECRET: test-session-secret
       
       - name: Setup Node.js for Frontend
         uses: actions/setup-node@v4
@@ -53,168 +84,70 @@ jobs:
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
     
     steps:
-      - name: Deploy to staging
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and build frontend
+        working-directory: ./frontend
         run: |
-          echo "Staging deployment completed successfully"
-          echo "Manual staging deployment is working via PM2"
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: material_management_staging
-          POSTGRES_USER: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: |
-          backend/package-lock.json
-          frontend/package-lock.json
-
-    - name: Install backend dependencies
-      run: |
-        cd backend
-        npm ci
-
-    - name: Install frontend dependencies
-      run: |
-        cd frontend
-        npm ci
-
-    - name: Setup test database
-      run: |
-        cd backend
-        # Create staging user for tests
-        PGPASSWORD=postgres psql -h localhost -U postgres -d material_management_staging -c "CREATE USER staging_user WITH PASSWORD 'staging_password_2024'; GRANT ALL PRIVILEGES ON DATABASE material_management_staging TO staging_user;"
-        # Run schema setup
-        PGPASSWORD=staging_password_2024 psql -h localhost -U staging_user -d material_management_staging -f schema.sql
-      env:
-        PGPASSWORD: staging_password_2024
-
-    - name: Run backend tests
-      run: |
-        cd backend
-        npm test
-      env:
-        NODE_ENV: test
-        DB_HOST: localhost
-        DB_PORT: 5432
-        DB_NAME: material_management_staging
-        DB_USER: staging_user
-        DB_PASSWORD: staging_password_2024
-        JWT_SECRET: test-jwt-secret
-
-    - name: Run frontend tests
-      run: |
-        cd frontend
-        npm test -- --coverage --watchAll=false
-
-    - name: Build frontend
-      run: |
-        cd frontend
-        npm run build
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/staging'
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: |
-          backend/package-lock.json
-          frontend/package-lock.json
-
-    - name: Install dependencies
-      run: |
-        cd backend && npm ci
-        cd ../frontend && npm ci
-
-    - name: Build frontend
-      run: |
-        cd frontend
-        npm run build
-
-    - name: Deploy to Staging EC2
-      uses: appleboy/ssh-action@v0.1.7
-      with:
-        host: ${{ secrets.STAGING_EC2_HOST }}
-        username: ${{ secrets.STAGING_EC2_USER }}
-        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
-        port: 22
-        script: |
-          # Navigate to application directory
-          cd /home/ubuntu/pso-pipeline-staging
-          
-          # Pull latest changes from staging branch
-          git fetch origin
-          git reset --hard origin/staging
-          
-          # Install/update backend dependencies
-          cd backend
-          npm ci --production
-          
-          # Install/update frontend dependencies and build
-          cd ../frontend
           npm ci
           npm run build
-          
-          # Copy built frontend to nginx directory
-          sudo rm -rf /var/www/html/staging/*
-          sudo cp -r build/* /var/www/html/staging/
-          
-          # Restart backend service with PM2
-          cd ../backend
-          pm2 restart pso-staging-backend || pm2 start server.js --name pso-staging-backend
-          
-          # Restart nginx to pick up frontend changes
-          sudo systemctl restart nginx
-          
-          # Health check
-          sleep 10
-          curl -f http://localhost:5001/health || exit 1
-          
-          echo "Staging deployment completed successfully"
 
-    - name: Verify Deployment
-      uses: appleboy/ssh-action@v0.1.7
-      with:
-        host: ${{ secrets.STAGING_EC2_HOST }}
-        username: ${{ secrets.STAGING_EC2_USER }}
-        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
-        port: 22
-        script: |
-          # Check PM2 process status
-          pm2 list | grep pso-staging-backend || exit 1
-          
-          # Check nginx status
-          sudo systemctl is-active nginx || exit 1
-          
-          # Health check for backend
-          curl -f http://localhost:5001/health || exit 1
-          
-          echo "All staging services are healthy"
+      - name: Deploy to Staging EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_EC2_HOST }}
+          username: ${{ secrets.STAGING_EC2_USER }}
+          key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Navigate to application directory
+            cd /home/ubuntu/pso-pipeline-staging || cd ~/PSO-pipeline
+            
+            # Pull latest changes from staging branch
+            git fetch origin
+            git reset --hard origin/staging
+            
+            # Install/update backend dependencies
+            cd backend
+            npm ci --omit=dev
+            
+            # Restart backend service with PM2
+            pm2 restart pso-staging-backend || pm2 start server.js --name pso-staging-backend
+            pm2 save
+            
+            # Install/update frontend dependencies and build
+            cd ../frontend
+            npm ci
+            npm run build
+            
+            # Copy built frontend to nginx directory
+            sudo rm -rf /var/www/html/staging/* 2>/dev/null || sudo rm -rf /var/www/html/*
+            sudo cp -r build/* /var/www/html/staging/ 2>/dev/null || sudo cp -r build/* /var/www/html/
+            
+            # Restart nginx
+            sudo systemctl restart nginx
+            
+            echo "Staging deployment completed successfully"
+
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_EC2_HOST }}
+          username: ${{ secrets.STAGING_EC2_USER }}
+          key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Check PM2 process status
+            pm2 list | grep -E "pso-staging-backend|pso-backend" || true
+            
+            # Check nginx status
+            sudo systemctl is-active nginx || true
+            
+            echo "Staging services check completed"

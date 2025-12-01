@@ -26,7 +26,7 @@ jobs:
       - name: Build frontend
         working-directory: ./frontend
         env:
-          REACT_APP_API_URL: http://${{ secrets.EC2_HOST || '13.212.157.243' }}/api
+          REACT_APP_API_URL: http://${{ secrets.EC2_HOST }}/api
         run: npm run build
       
       - name: Create build archive
@@ -36,21 +36,46 @@ jobs:
           zip -r ../production-build.zip .
       
       - name: Deploy to Production EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            
+            # Navigate to project
+            cd /home/ubuntu/PSO-pipeline || cd ~/PSO-pipeline
+            
+            # Pull latest changes
+            git fetch origin
+            git reset --hard origin/main
+            git pull origin main
+            
+            # Update backend
+            cd backend
+            npm ci --omit=dev
+            pm2 restart pso-backend || pm2 start server.js --name "pso-backend"
+            pm2 save
+            
+            echo "Production deployment completed successfully!"
+
+      - name: Deploy Frontend Build
         run: |
-          # Setup SSH
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY || secrets.EC2_KEY }}" > ~/.ssh/ec2_key
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST || '13.212.157.243' }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           
           # Transfer build
           scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
             frontend/production-build.zip \
-            ${{ secrets.EC2_USER || 'ubuntu' }}@${{ secrets.EC2_HOST || '13.212.157.243' }}:~/production-build.zip
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/production-build.zip
           
-          # Deploy production
+          # Deploy frontend
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER || 'ubuntu' }}@${{ secrets.EC2_HOST || '13.212.157.243' }} << 'EOF'
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             
             # Backup current deployment
             sudo cp -r /var/www/html /var/www/html.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
@@ -63,65 +88,12 @@ jobs:
             sudo chown -R www-data:www-data /var/www/html/
             sudo chmod -R 755 /var/www/html/
             
-            # Update backend
-            cd ~/PSO-pipeline
-            git pull origin main
-            cd backend
-            npm ci --omit=dev
-            pm2 restart pso-backend || pm2 start server.js --name "pso-backend"
-            pm2 save
-            
-            # Restart services
+            # Restart nginx
             sudo systemctl restart nginx
             
             # Cleanup
             rm -f ~/production-build.zip
             rm -rf ~/deploy-production
             
-            echo "Production deployment completed successfully!"
+            echo "Frontend deployment completed!"
           EOF
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: 22
-        script: |
-          set -e
-          
-          # Navigate to project
-          cd /home/ubuntu/PSO-pipeline
-          
-          # Pull latest changes
-          git fetch origin
-          git reset --hard origin/main
-          git pull origin main
-          
-          # Stop existing containers
-          docker-compose down || true
-          
-          # Remove old images to save space
-          docker system prune -af
-          
-          # Build and start new containers
-          docker-compose up -d --build
-          
-          # Wait for services to be healthy
-          echo "Waiting for services to start..."
-          sleep 30
-          
-          # Verify deployment
-          docker-compose ps
-          curl -f http://localhost/ || curl -f http://localhost:5001/health
-          
-          echo "🎉 Deployment completed successfully!"
