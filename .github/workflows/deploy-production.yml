@@ -45,8 +45,12 @@ jobs:
           script: |
             set -e
             
-            # Navigate to project
-            cd /home/ubuntu/PSO-pipeline || cd ~/PSO-pipeline
+            # Clone or navigate to project
+            if [ ! -d ~/PSO-pipeline ]; then
+              cd ~
+              git clone https://github.com/rifqi-thufail/PSO-pipeline.git
+            fi
+            cd ~/PSO-pipeline
             
             # Pull latest changes
             git fetch origin
