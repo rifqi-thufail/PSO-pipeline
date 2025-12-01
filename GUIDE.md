@@ -61,7 +61,7 @@ git push origin staging
 #### Step 2: Cek Pipeline di GitHub
 1. Buka https://github.com/rifqi-thufail/PSO-pipeline/actions
 2. Lihat workflow "Deploy to Staging" berjalan
-3. Tunggu sampai ✅ SUCCESS
+3. Tunggu sampai SUCCESS
 
 #### Step 3: Test di Staging Environment
 - Buka http://13.212.157.243 (staging)
@@ -88,7 +88,7 @@ gh pr create --base main --head staging --title "Release: deskripsi" --body "Des
 #### Step 6: Verifikasi Production
 1. Buka https://github.com/rifqi-thufail/PSO-pipeline/actions
 2. Lihat workflow "Deploy to Production EC2"
-3. Tunggu sampai ✅ SUCCESS
+3. Tunggu sampai SUCCESS
 4. Buka http://13.250.124.111 (production)
 5. Verifikasi perubahan sudah live
 
