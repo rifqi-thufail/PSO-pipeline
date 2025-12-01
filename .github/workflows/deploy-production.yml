@@ -83,9 +83,9 @@ jobs:
             # Deploy new version
             sudo rm -rf /var/www/html/*
             mkdir -p ~/deploy-production
-            unzip -q ~/production-build.zip -d ~/deploy-production/
+            unzip -o -q ~/production-build.zip -d ~/deploy-production/
             sudo cp -r ~/deploy-production/* /var/www/html/
-            sudo chown -R www-data:www-data /var/www/html/
+            sudo chown -R nginx:nginx /var/www/html/ 2>/dev/null || sudo chown -R www-data:www-data /var/www/html/ 2>/dev/null || true
             sudo chmod -R 755 /var/www/html/
             
             # Restart nginx

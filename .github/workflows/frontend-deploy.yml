@@ -88,11 +88,11 @@ jobs:
             
             # Extract new build
             mkdir -p ~/deploy-frontend
-            unzip -q ~/build.zip -d ~/deploy-frontend/build
+            unzip -o -q ~/build.zip -d ~/deploy-frontend/build
             
             # Deploy to nginx
             sudo cp -r ~/deploy-frontend/build/* /var/www/html/
-            sudo chown -R www-data:www-data /var/www/html/
+            sudo chown -R nginx:nginx /var/www/html/ 2>/dev/null || sudo chown -R www-data:www-data /var/www/html/ 2>/dev/null || true
             sudo chmod -R 755 /var/www/html/
             
             # Restart nginx
