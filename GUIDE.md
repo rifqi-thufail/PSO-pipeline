@@ -1,10 +1,145 @@
 # Developer Guide - Material Management System
 ## Table of Contents
+- [CI/CD Pipeline Guide](#cicd-pipeline-guide)
 - [Understanding the Project Structure](#understanding-the-project-structure)
 - [How to Modify Features](#how-to-modify-features)
 - [Common Customizations](#common-customizations)
 - [Database Changes](#database-changes)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## CI/CD Pipeline Guide
+
+### Overview
+
+Project ini menggunakan GitHub Actions untuk CI/CD dengan 2 environment:
+- **Staging** (13.212.157.243) - untuk testing
+- **Production** (13.250.124.111) - untuk live app
+
+### Workflow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         CI/CD WORKFLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Developer push code ke branch STAGING                       │
+│           ↓                                                     │
+│  2. GitHub Actions: Run Unit Tests (backend + frontend)         │
+│           ↓                                                     │
+│  3. Jika test PASS → Auto deploy ke Staging EC2                 │
+│           ↓                                                     │
+│  4. Test manual di staging environment                          │
+│           ↓                                                     │
+│  5. Buat Pull Request: staging → main                           │
+│           ↓                                                     │
+│  6. Review & Merge PR                                           │
+│           ↓                                                     │
+│  7. GitHub Actions: Run Tests lagi                              │
+│           ↓                                                     │
+│  8. Jika test PASS → Auto deploy ke Production EC2              │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Step-by-Step: Cara Deploy Code Baru
+
+#### Step 1: Push ke Staging
+```bash
+# Pastikan di branch staging
+git checkout staging
+
+# Buat perubahan code...
+
+# Commit dan push
+git add .
+git commit -m "feat: deskripsi perubahan"
+git push origin staging
+```
+
+#### Step 2: Cek Pipeline di GitHub
+1. Buka https://github.com/rifqi-thufail/PSO-pipeline/actions
+2. Lihat workflow "Deploy to Staging" berjalan
+3. Tunggu sampai ✅ SUCCESS
+
+#### Step 3: Test di Staging Environment
+- Buka http://13.212.157.243 (staging)
+- Test fitur yang baru ditambahkan
+- Pastikan tidak ada bug
+
+#### Step 4: Buat Pull Request ke Main
+```bash
+# Via GitHub CLI
+gh pr create --base main --head staging --title "Release: deskripsi" --body "Deskripsi perubahan"
+
+# Atau via GitHub Web:
+# 1. Buka https://github.com/rifqi-thufail/PSO-pipeline
+# 2. Klik "Compare & pull request"
+# 3. Set base: main, compare: staging
+# 4. Klik "Create pull request"
+```
+
+#### Step 5: Merge Pull Request
+1. Review perubahan di PR
+2. Klik "Merge pull request"
+3. Pipeline production akan jalan otomatis
+
+#### Step 6: Verifikasi Production
+1. Buka https://github.com/rifqi-thufail/PSO-pipeline/actions
+2. Lihat workflow "Deploy to Production EC2"
+3. Tunggu sampai ✅ SUCCESS
+4. Buka http://13.250.124.111 (production)
+5. Verifikasi perubahan sudah live
+
+### Monitoring Pipeline
+
+#### Cek Status via CLI
+```bash
+# Lihat semua pipeline
+gh run list --repo rifqi-thufail/PSO-pipeline --limit 5
+
+# Lihat detail pipeline tertentu
+gh run view <run_id> --repo rifqi-thufail/PSO-pipeline
+
+# Lihat log error
+gh run view <run_id> --repo rifqi-thufail/PSO-pipeline --log-failed
+```
+
+#### Cek Status via Web
+1. Buka https://github.com/rifqi-thufail/PSO-pipeline/actions
+2. Klik workflow yang ingin dilihat
+3. Klik job untuk lihat detail log
+
+### Re-run Pipeline yang Gagal
+
+```bash
+# Re-run semua jobs
+gh run rerun <run_id> --repo rifqi-thufail/PSO-pipeline
+
+# Re-run hanya yang failed
+gh run rerun <run_id> --repo rifqi-thufail/PSO-pipeline --failed
+```
+
+### Troubleshooting Pipeline
+
+| Error | Penyebab | Solusi |
+|-------|----------|--------|
+| `npm test` failed | Unit test gagal | Fix code yang error |
+| `ssh: unable to authenticate` | SSH key salah | Cek GitHub Secrets |
+| `missing server host` | Secret tidak ada | Tambah secret di GitHub |
+| `No such file or directory` | Folder tidak ada di EC2 | Workflow akan auto-clone |
+
+### GitHub Secrets yang Digunakan
+
+| Secret | Deskripsi |
+|--------|-----------|
+| `EC2_HOST` | IP Production (13.250.124.111) |
+| `EC2_USER` | Username EC2 (ubuntu) |
+| `EC2_SSH_KEY` | Private key untuk SSH |
+| `STAGING_EC2_HOST` | IP Staging (13.212.157.243) |
+| `STAGING_EC2_USER` | Username EC2 staging |
+| `STAGING_SSH_PRIVATE_KEY` | Private key staging |
 
 ---
 
