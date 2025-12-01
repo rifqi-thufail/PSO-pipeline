@@ -1,0 +1,555 @@
+Berikut adalah **text lengkap** gabungan dari ketiga PDF kamu yang bisa langsung di-copy paste ke file `.txt`:
+
+***
+
+```
+================================================================================
+PSO-PIPELINE DEVOPS ERROR DOCUMENTATION
+Complete Analysis & Fix Guide
+Repository: git@github.com:rifqi-thufail/PSO-pipeline.git
+Date: December 1, 2025
+================================================================================
+
+================================================================================
+SECTION 1: PIPELINE STATUS OVERVIEW
+================================================================================
+
+Failed Workflows Summary:
+- staging-deploy.yml     → 7 consecutive failures
+- deploy-production.yml  → 4 failures
+- frontend-deploy.yml    → 2 recent failures
+- backend-deploy.yml     → 1 recent failure
+
+Latest GitHub Actions Run Status:
+┌─────────────────────────────────┬────────────┬─────────────────────────────┐
+│ Check Name                      │ Status     │ Duration                    │
+├─────────────────────────────────┼────────────┼─────────────────────────────┤
+│ Frontend CI/CD to EC2 / build   │ FAILING    │ 22s                         │
+│ Deploy to Production EC2        │ FAILING    │ 11s                         │
+│ Deploy to Staging / test        │ FAILING    │ 58s                         │
+│ Deploy to Staging / deploy      │ SKIPPED    │ -                           │
+│ Frontend CI/CD to EC2 / deploy  │ SKIPPED    │ -                           │
+│ Backend CI/CD to EC2 / deploy   │ SUCCESS    │ 13s                         │
+│ Backend CI/CD to EC2 / test     │ SUCCESS    │ 20s                         │
+└─────────────────────────────────┴────────────┴─────────────────────────────┘
+
+EC2 Instances:
+- PSO-Backend (i-0275fb01dd0ac32c0) - Production - t3.micro - ap-southeast-1c - Running
+- pso-staging-sg (i-0ce334605723e218c) - Staging - t3.micro - ap-southeast-1c - Running
+
+================================================================================
+SECTION 2: ISSUE #1 - DUPLICATE YAML JOBS KEY (CRITICAL)
+================================================================================
+
+Severity: CRITICAL 🔴
+
+Description:
+All four workflow files contain duplicate "jobs:" keys, which is invalid YAML syntax.
+This causes the GitHub Actions parser to fail immediately.
+
+Affected Files:
+1. .github/workflows/backend-deploy.yml
+2. .github/workflows/frontend-deploy.yml
+3. .github/workflows/deploy-production.yml
+4. .github/workflows/staging-deploy.yml
+
+Evidence (from diff analysis):
+```
+# WRONG - Current state in each file:
+jobs:          # First jobs block (added recently)
+  test:
+    runs-on: ubuntu-latest
+    ...
+  deploy:
+    ...
+
+jobs:          # Second jobs block (original - DUPLICATE!)
+  test:
+    runs-on: ubuntu-latest
+    ...
+```
+
+Root Cause:
+Someone added new job configurations without removing the existing jobs: block,
+resulting in duplicate YAML keys.
+
+FIX REQUIRED:
+Remove the duplicate jobs: blocks from all four workflow files and merge the job
+definitions into a single jobs: block.
+
+================================================================================
+SECTION 3: ISSUE #2 - UNIT TEST FAILURES (3 FILES)
+================================================================================
+
+Severity: HIGH ⚠️
+
+Test Results Summary:
+- Test Suites: 3 failed, 3 total
+- Tests: 2 failed, 9 passed, 11 total
+- Time: 1.893s - 4.355s
+
+--------------------------------------------------------------------------------
+ISSUE 2A: Navbar.test.jsx - Cannot find module 'react-router-dom'
+--------------------------------------------------------------------------------
+
+Error Log:
+```
+FAIL src/tests/Navbar.test.jsx
+  -  Test suite failed to run
+
+  Cannot find module 'react-router-dom' from 'src/tests/Navbar.test.jsx'
+
+    8 | // Mock react-router-dom
+    9 | const mockNavigate = jest.fn();
+  > 10 | jest.mock('react-router-dom', () => ({
+    11 |   ...jest.requireActual('react-router-dom'),
+    12 |   useNavigate: () => mockNavigate,
+    13 |   useLocation: () => ({ pathname: '/' }),
+
+  at Resolver.resolveModule (node_modules/jest-resolve/build/resolver.js:324:11)
+  at Object.<anonymous> (src/tests/Navbar.test.jsx:10:6)
+```
+
+Additional Issues:
+- Test looks for user name display: expect(screen.getByText('Test User'))
+  But actual Navbar shows: Welcome, {user?.name?.split(' ')[0]} (first name only)
+- Test looks for logout button directly, but Navbar uses Dropdown menu
+
+FIX REQUIRED:
+Create file: frontend/src/__mocks__/react-router-dom.js
+
+```
+const mockNavigate = jest.fn();
+
+module.exports = {
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ pathname: '/' }),
+  BrowserRouter: ({ children }) => children,
+  Link: ({ children, to }) => <a href={to}>{children}</a>,
+};
+```
+
+--------------------------------------------------------------------------------
+ISSUE 2B: api.test.js - SyntaxError with ES Modules (axios)
+--------------------------------------------------------------------------------
+
+Error Log:
+```
+FAIL src/tests/api.test.js
+  -  Test suite failed to run
+
+  Jest encountered an unexpected token
+
+  Jest failed to parse a file. This happens e.g. when your code or its
+  dependencies use non-standard JavaScript syntax, or when Jest is not
+  configured to support such syntax.
+
+  Out of the box Jest supports Babel, which will be used to transform your
+  files into valid JS based on your Babel configuration.
+
+  By default "node_modules" folder is ignored by transformers.
+
+  Details:
+
+  /home/runner/work/PSO-pipeline/PSO-pipeline/frontend/node_modules/axios/index.js:1
+  ({"Object.<anonymous>":function(module,exports,require,__dirname,__filename,jest){
+  import axios from './lib/axios.js';
+                                      ^^^^^^
+
+  SyntaxError: Cannot use import statement outside a module
+
+  > 1 | import axios from 'axios';
+    2 | import {
+    3 |   login,
+    4 |   register,
+
+  at Runtime.createScriptFromCode (node_modules/jest-runtime/build/index.js:1728:14)
+  at Object.<anonymous> (src/tests/api.test.js:1:1)
+```
+
+Root Cause:
+The axios package uses ES modules, but Jest is configured for CommonJS.
+The test mocks axios.create() but api.js creates instance at module load time,
+before mocks are set up.
+
+FIX REQUIRED:
+1. Create file: frontend/src/__mocks__/axios.js
+
+```
+const mockAxiosInstance = {
+  get: jest.fn(() => Promise.resolve({ data: {} })),
+  post: jest.fn(() => Promise.resolve({ data: {} })),
+  put: jest.fn(() => Promise.resolve({ data: {} })),
+  delete: jest.fn(() => Promise.resolve({ data: {} })),
+  interceptors: {
+    request: { use: jest.fn(), eject: jest.fn() },
+    response: { use: jest.fn(), eject: jest.fn() }
+  }
+};
+
+const axios = {
+  create: jest.fn(() => mockAxiosInstance),
+  get: jest.fn(() => Promise.resolve({ data: {} })),
+  post: jest.fn(() => Promise.resolve({ data: {} })),
+  put: jest.fn(() => Promise.resolve({ data: {} })),
+  delete: jest.fn(() => Promise.resolve({ data: {} })),
+  defaults: { headers: { common: {} } },
+  interceptors: {
+    request: { use: jest.fn(), eject: jest.fn() },
+    response: { use: jest.fn(), eject: jest.fn() }
+  }
+};
+
+module.exports = axios;
+module.exports.default = axios;
+```
+
+2. Update frontend/package.json - Add Jest configuration:
+
+```
+"jest": {
+  "transformIgnorePatterns": [
+    "node_modules/(?!(axios)/)"
+  ],
+  "moduleNameMapper": {
+    "^axios$": "<rootDir>/src/__mocks__/axios.js"
+  }
+}
+```
+
+--------------------------------------------------------------------------------
+ISSUE 2C: dropdownFilter.test.js - No Error Handling
+--------------------------------------------------------------------------------
+
+Error Log:
+```
+FAIL src/tests/dropdownFilter.test.js
+  -  dropdownFilter utility functions › getHiddenDropdownIds › should handle invalid JSON
+
+    expect(received).not.toThrow()
+
+    Error name:    "SyntaxError"
+    Error message: "Unexpected token 'i', \"invalid-json\" is not valid JSON"
+
+      4 | export const getHiddenDropdownIds = () => {
+      5 |   const stored = localStorage.getItem('hiddenDropdownIds');
+    > 6 |   return stored ? JSON.parse(stored) : [];
+        |                   ^
+      7 | };
+
+    at getHiddenDropdownIds (src/utils/dropdownFilter.js:6:24)
+    at src/tests/dropdownFilter.test.js:31:40
+
+  -  dropdownFilter utility functions › filterHiddenDropdowns › should handle null/undefined
+
+    TypeError: Cannot read properties of null (reading 'filter')
+
+      9  | export const filterHiddenDropdowns = (dropdowns) => {
+      10 |   const hiddenIds = getHiddenDropdownIds();
+    > 11 |   return dropdowns.filter(item => !hiddenIds.includes(item.id));
+         |          ^
+      12 | };
+
+    at filterHiddenDropdowns (src/utils/dropdownFilter.js:11:20)
+    at Object.<anonymous> (src/tests/dropdownFilter.test.js:70:44)
+```
+
+Current Code (BROKEN - Staging Branch):
+```
+export const getHiddenDropdownIds = () => {
+  const stored = localStorage.getItem('hiddenDropdownIds');
+  return stored ? JSON.parse(stored) : [];  // No error handling!
+};
+
+export const filterHiddenDropdowns = (dropdowns) => {
+  const hiddenIds = getHiddenDropdownIds();
+  return dropdowns.filter(item => !hiddenIds.includes(item.id));  // No null check!
+};
+```
+
+FIX REQUIRED:
+Update file: frontend/src/utils/dropdownFilter.js
+
+```
+export const getHiddenDropdownIds = () => {
+  try {
+    const stored = localStorage.getItem('hiddenDropdownIds');
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    console.warn('Error parsing hiddenDropdownIds from localStorage:', error);
+    return [];
+  }
+};
+
+export const filterHiddenDropdowns = (dropdowns) => {
+  if (!dropdowns || !Array.isArray(dropdowns)) {
+    return [];
+  }
+  const hiddenIds = getHiddenDropdownIds();
+  return dropdowns.filter(item => !hiddenIds.includes(item.id));
+};
+
+export const isDropdownHidden = (id) => {
+  const hiddenIds = getHiddenDropdownIds();
+  return hiddenIds.includes(id);
+};
+```
+
+================================================================================
+SECTION 4: ISSUE #3 - SSH AUTHENTICATION FAILED
+================================================================================
+
+Severity: HIGH ⚠️
+
+Error Log:
+```
+Run appleboy/ssh-action@v0.1.7
+======CMD======
+set -e
+
+# Navigate to project
+cd /home/ubuntu/PSO-pipeline
+
+# Pull latest changes
+git fetch origin
+git reset --hard origin/main
+git pull origin main
+
+# Stop existing containers
+docker-compose down || true
+
+# Remove old images to save space
+docker system prune -af
+
+# Build and start new containers
+docker-compose up -d --build
+
+# Wait for services to be healthy
+echo "Waiting for services to start..."
+sleep 30
+
+# Verify deployment
+docker-compose ps
+curl -f http://localhost/ || curl -f http://localhost:5001/health
+
+echo "Deployment completed successfully!"
+======END======
+2025/11/30 13:38:20 ssh: handshake failed: ssh: unable to authenticate,
+attempted methods [none publickey], no supported methods remain
+```
+
+Root Cause:
+GitHub Secrets for SSH keys are either missing or incorrectly configured.
+
+FIX REQUIRED:
+Go to GitHub Repository → Settings → Secrets and variables → Actions
+
+Add/Verify these secrets:
+
+For Production (main branch):
+- EC2_HOST           = [Production EC2 IP Address]
+- EC2_USER           = ubuntu
+- EC2_SSH_KEY        = [Content of private key file - the .pem file]
+
+For Staging (staging branch):
+- STAGING_EC2_HOST        = [Staging EC2 IP Address]
+- STAGING_EC2_USER        = ubuntu
+- STAGING_SSH_PRIVATE_KEY = [Content of staging private key file]
+
+Note: The workflow files have fallback values like:
+${{ secrets.EC2_HOST || '13.212.157.243' }}
+This indicates secrets may not be consistently set.
+
+================================================================================
+SECTION 5: ISSUE #4 - SETUPTESTS.JS INCOMPLETE
+================================================================================
+
+Severity: MEDIUM ⚠️
+
+Current Code (BROKEN - Staging Branch):
+```
+// Missing import!
+// import '@testing-library/jest-dom';
+const mockLocalStorage = { ... };
+```
+
+FIX REQUIRED:
+Update file: frontend/src/setupTests.js
+
+```
+import '@testing-library/jest-dom';
+
+// Mock localStorage
+const mockLocalStorage = (() => {
+  let store = {};
+  return {
+    getItem: jest.fn((key) => store[key] || null),
+    setItem: jest.fn((key, value) => {
+      store[key] = value.toString();
+    }),
+    removeItem: jest.fn((key) => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    }),
+  };
+})();
+
+Object.defineProperty(window, 'localStorage', {
+  value: mockLocalStorage,
+});
+
+// Reset mocks before each test
+beforeEach(() => {
+  mockLocalStorage.clear();
+  jest.clearAllMocks();
+});
+```
+
+================================================================================
+SECTION 6: ISSUE #5 - BRANCH SYNCHRONIZATION
+================================================================================
+
+Severity: MEDIUM ⚠️
+
+Current State:
+- main branch:    79d7042 (ahead of staging by 3 commits)
+- staging branch: 66a84da (behind main)
+
+Branch Differences:
+┌──────────────────────┬─────────────────────┬─────────────────────┐
+│ Feature              │ Staging             │ Main                │
+├──────────────────────┼─────────────────────┼─────────────────────┤
+│ Frontend tests       │ Complex (failing)   │ Dummy (passing)     │
+│ Mock files           │ Missing             │ Present             │
+│ setupTests.js        │ Incomplete          │ Complete            │
+│ dropdownFilter.js    │ No error handling   │ Error handling      │
+│ Workflow syntax      │ Has duplicates      │ Has duplicates      │
+└──────────────────────┴─────────────────────┴─────────────────────┘
+
+Test File Differences:
+┌────────────────────────────────────────┬──────────────┬──────────────┐
+│ File                                   │ Staging      │ Main         │
+├────────────────────────────────────────┼──────────────┼──────────────┤
+│ frontend/src/tests/Navbar.test.jsx     │ ✓ Exists     │ ✗ Missing    │
+│ frontend/src/tests/api.test.js         │ ✓ Exists     │ ✗ Missing    │
+│ frontend/src/tests/dropdownFilter.test │ ✓ Exists     │ ✗ Missing    │
+│ frontend/src/__tests__/dummy.test.js   │ ✗ Missing    │ ✓ Exists     │
+│ frontend/src/__mocks__/axios.js        │ ✗ Missing    │ ✓ Exists     │
+│ frontend/src/__mocks__/react-router-dom│ ✗ Missing    │ ✓ Exists     │
+│ backend/tests/dummy.test.js            │ ✗ Missing    │ ✓ Exists     │
+└────────────────────────────────────────┴──────────────┴──────────────┘
+
+================================================================================
+SECTION 7: REQUIRED FILE STRUCTURE
+================================================================================
+
+Ensure this structure exists:
+
+frontend/
+├── src/
+│   ├── __mocks__/
+│   │   ├── axios.js              ← CREATE THIS
+│   │   └── react-router-dom.js   ← CREATE THIS
+│   ├── __tests__/
+│   │   └── dummy.test.js         ← Optional fallback
+│   ├── tests/
+│   │   ├── Navbar.test.jsx
+│   │   ├── api.test.js
+│   │   └── dropdownFilter.test.js
+│   ├── utils/
+│   │   └── dropdownFilter.js     ← UPDATE THIS
+│   └── setupTests.js             ← UPDATE THIS
+├── package.json                  ← UPDATE JEST CONFIG
+└── ...
+
+.github/
+└── workflows/
+    ├── backend-deploy.yml        ← FIX DUPLICATE JOBS
+    ├── frontend-deploy.yml       ← FIX DUPLICATE JOBS
+    ├── deploy-production.yml     ← FIX DUPLICATE JOBS
+    └── staging-deploy.yml        ← FIX DUPLICATE JOBS
+
+================================================================================
+SECTION 8: QUICK FIX COMMANDS
+================================================================================
+
+# Step 1: Switch to staging branch
+git checkout staging
+
+# Step 2: Copy mock files from main (if they exist)
+git checkout origin/main -- frontend/src/__mocks__/
+git checkout origin/main -- frontend/src/setupTests.js
+
+# Step 3: Fix YAML duplicates (edit each workflow file manually)
+# Open each file in .github/workflows/ and remove duplicate jobs: key
+
+# Step 4: Commit and push
+git add .
+git commit -m "fix: resolve all pipeline issues - YAML syntax, tests, and mocks"
+git push origin staging
+
+# Step 5: After tests pass, merge to main
+git checkout main
+git merge staging
+git push origin main
+
+================================================================================
+SECTION 9: COMPLETION CHECKLIST
+================================================================================
+
+[ ] 1. All 4 workflow YAML files have no duplicate "jobs:" key
+[ ] 2. File frontend/src/__mocks__/axios.js created
+[ ] 3. File frontend/src/__mocks__/react-router-dom.js created
+[ ] 4. File frontend/src/utils/dropdownFilter.js updated with error handling
+[ ] 5. File frontend/src/setupTests.js is complete with import
+[ ] 6. Jest config added to frontend/package.json
+[ ] 7. All tests pass with "npm test" command
+[ ] 8. GitHub Secrets configured correctly
+[ ] 9. RSA/PEM key file identified for EC2 SSH
+
+================================================================================
+SECTION 10: EXPECTED PIPELINE FLOW (INSTRUCTOR REQUIREMENT)
+================================================================================
+
+                    ┌─────────────┐
+                    │  Code Push  │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   Staging   │
+                    │   Branch    │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  Unit Test  │
+                    │    Run      │
+                    └──────┬──────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+              ▼                         ▼
+       ┌─────────────┐           ┌─────────────┐
+       │ Tests PASS  │           │ Tests FAIL  │
+       └──────┬──────┘           └──────┬──────┘
+              │                         │
+              ▼                         ▼
+       ┌─────────────┐           ┌─────────────┐
+       │  Merge to   │           │   Fix Code  │
+       │ Production  │           │  & Re-push  │
+       └─────────────┘           └─────────────┘
+
+Two Codebases:
+1. Staging branch - for testing and development
+2. Main/Production branch - for production deployment
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+```
+
