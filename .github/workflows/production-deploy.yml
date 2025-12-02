@@ -12,6 +12,11 @@ on:
           - 'false'
           - 'true'
 
+# Required permissions for creating/managing issues
+permissions:
+  contents: read
+  issues: write
+
 env:
   APPROVERS: 'rifqi-thufail,abyansyah052'
   APPROVAL_TIMEOUT: 30  # minutes
