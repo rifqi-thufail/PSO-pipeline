@@ -39,7 +39,7 @@ jobs:
             const issue = await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🚀 Production Deployment Approval Request - Run #${context.runNumber}`,
+              title: ` Production Deployment Approval Request - Run #${context.runNumber}`,
               body: `## Production Deployment Request
             
             **Requested by:** @${context.actor}
@@ -49,18 +49,18 @@ jobs:
             
             ---
             
-            ### 📋 Approvers Required
+            ###  Approvers Required
             ${mentions}
             
-            ### ✅ To Approve
+            ###  To Approve
             Comment one of: \`approved\`, \`approve\`, \`lgtm\`, \`yes\`
             
-            ### ❌ To Deny
+            ###  To Deny
             Comment one of: \`deny\`, \`denied\`, \`no\`, \`reject\`
             
             ---
             
-            ⏰ **Timeout:** ${process.env.APPROVAL_TIMEOUT_MINUTES} minutes
+             **Timeout:** ${process.env.APPROVAL_TIMEOUT_MINUTES} minutes
             
             The workflow will automatically deploy to production once approved.`,
               labels: ['deployment', 'production', 'awaiting-approval']
@@ -84,23 +84,23 @@ jobs:
             const approveKeywords = ['approved', 'approve', 'lgtm', 'yes'];
             const denyKeywords = ['deny', 'denied', 'no', 'reject'];
             
-            console.log(`🕐 Waiting for approval on issue #${issueNumber}`);
-            console.log(`👥 Authorized approvers: ${approvers.join(', ')}`);
-            console.log(`⏰ Timeout: ${process.env.APPROVAL_TIMEOUT_MINUTES} minutes`);
+            console.log(` Waiting for approval on issue #${issueNumber}`);
+            console.log(` Authorized approvers: ${approvers.join(', ')}`);
+            console.log(` Timeout: ${process.env.APPROVAL_TIMEOUT_MINUTES} minutes`);
             
             let lastCheckedCommentId = 0;
             
             while (true) {
               // Check timeout
               if (Date.now() - startTime > timeoutMs) {
-                console.log('❌ Approval timeout reached');
+                console.log(' Approval timeout reached');
                 
                 // Comment timeout pada issue
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                  body: `⏰ **Approval Timeout**\n\nThis deployment request has timed out after ${process.env.APPROVAL_TIMEOUT_MINUTES} minutes without approval.\n\nWorkflow cancelled.`
+                  body: ` **Approval Timeout**\n\nThis deployment request has timed out after ${process.env.APPROVAL_TIMEOUT_MINUTES} minutes without approval.\n\nWorkflow cancelled.`
                 });
                 
                 await github.rest.issues.update({
@@ -131,23 +131,23 @@ jobs:
                 const author = comment.user.login.toLowerCase();
                 const body = comment.body.toLowerCase().trim();
                 
-                console.log(`📝 Comment from @${author}: "${comment.body.substring(0, 50)}..."`);
+                console.log(` Comment from @${author}: "${comment.body.substring(0, 50)}..."`);
                 
                 // Check apakah author adalah approver
                 if (!approvers.includes(author)) {
-                  console.log(`⚠️ @${author} is not an authorized approver, skipping`);
+                  console.log(` @${author} is not an authorized approver, skipping`);
                   continue;
                 }
                 
                 // Check untuk denial
                 if (denyKeywords.some(kw => body.includes(kw))) {
-                  console.log(`❌ Deployment DENIED by @${author}`);
+                  console.log(` Deployment DENIED by @${author}`);
                   
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
-                    body: `❌ **Deployment Denied**\n\nDenied by @${author}\n\nWorkflow cancelled.`
+                    body: ` **Deployment Denied**\n\nDenied by @${author}\n\nWorkflow cancelled.`
                   });
                   
                   await github.rest.issues.update({
@@ -165,13 +165,13 @@ jobs:
                 
                 // Check untuk approval
                 if (approveKeywords.some(kw => body.includes(kw))) {
-                  console.log(`✅ Deployment APPROVED by @${author}`);
+                  console.log(` Deployment APPROVED by @${author}`);
                   
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
-                    body: `✅ **Deployment Approved**\n\nApproved by @${author}\n\nProceeding with production deployment...`
+                    body: ` **Deployment Approved**\n\nApproved by @${author}\n\nProceeding with production deployment...`
                   });
                   
                   core.setOutput('approved', 'true');
@@ -188,7 +188,7 @@ jobs:
               }
               
               const elapsed = Math.floor((Date.now() - startTime) / 1000);
-              console.log(`⏳ Waiting... (${elapsed}s elapsed, checking every 15s)`);
+              console.log(` Waiting... (${elapsed}s elapsed, checking every 15s)`);
               
               // Wait before next poll
               await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -239,7 +239,7 @@ jobs:
           zip -r ../production-deploy.zip .
           cd ..
           
-          echo "📦 Package created:"
+          echo " Package created:"
           ls -lh production-deploy.zip
 
       - name: Setup SSH key
@@ -251,7 +251,7 @@ jobs:
 
       - name: Deploy to Production EC2
         run: |
-          echo "🚀 Deploying to Production server..."
+          echo " Deploying to Production server..."
           
           # Upload package
           scp -i ~/.ssh/prod_key.pem -o StrictHostKeyChecking=no \
@@ -263,7 +263,7 @@ jobs:
             ${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }} << 'DEPLOY_SCRIPT'
           
           set -e
-          echo "📦 Extracting deployment package..."
+          echo " Extracting deployment package..."
           
           # Backup current deployment
           if [ -d /home/ubuntu/app ]; then
@@ -277,7 +277,7 @@ jobs:
           rm /tmp/production-deploy.zip
           
           # Install backend dependencies
-          echo "📥 Installing backend dependencies..."
+          echo " Installing backend dependencies..."
           cd /home/ubuntu/app/backend
           npm install --production
           
@@ -286,7 +286,7 @@ jobs:
           chmod 755 uploads uploads/materials
           
           # Restart backend with PM2
-          echo "🔄 Restarting backend..."
+          echo " Restarting backend..."
           pm2 delete material-api-prod 2>/dev/null || true
           pm2 start server.js --name material-api-prod \
             --env production \
@@ -311,30 +311,30 @@ jobs:
           # Restart nginx
           sudo systemctl restart nginx
           
-          echo "✅ Production deployment completed!"
+          echo " Production deployment completed!"
           pm2 status
           
           DEPLOY_SCRIPT
 
       - name: Health check
         run: |
-          echo "🏥 Running health checks..."
+          echo " Running health checks..."
           sleep 10
           
           # Check backend
           BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.PROD_EC2_HOST }}:5001" || echo "000")
           if [ "$BACKEND_STATUS" = "200" ]; then
-            echo "✅ Backend is healthy (HTTP $BACKEND_STATUS)"
+            echo " Backend is healthy (HTTP $BACKEND_STATUS)"
           else
-            echo "⚠️ Backend check returned HTTP $BACKEND_STATUS"
+            echo " Backend check returned HTTP $BACKEND_STATUS"
           fi
           
           # Check frontend
           FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.PROD_EC2_HOST }}" || echo "000")
           if [ "$FRONTEND_STATUS" = "200" ]; then
-            echo "✅ Frontend is healthy (HTTP $FRONTEND_STATUS)"
+            echo " Frontend is healthy (HTTP $FRONTEND_STATUS)"
           else
-            echo "⚠️ Frontend check returned HTTP $FRONTEND_STATUS"
+            echo " Frontend check returned HTTP $FRONTEND_STATUS"
           fi
 
       - name: Update approval issue
@@ -347,16 +347,16 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `## 🎉 Production Deployment Successful!
+              body: `##  Production Deployment Successful!
             
             **Deployed at:** ${new Date().toISOString()}
             **Approved by:** @${{ needs.request-and-wait-approval.outputs.approver }}
             
-            ### 🔗 Production URLs
+            ###  Production URLs
             - **Frontend:** http://${{ secrets.PROD_EC2_HOST }}
             - **Backend API:** http://${{ secrets.PROD_EC2_HOST }}:5001
             
-            ### ✅ Health Check Results
+            ###  Health Check Results
             Deployment verified and running.`
             });
             
@@ -376,5 +376,5 @@ jobs:
     steps:
       - name: Log deployment cancelled
         run: |
-          echo "❌ Deployment was not approved or was denied/timed out"
+          echo " Deployment was not approved or was denied/timed out"
           echo "Approval status: ${{ needs.request-and-wait-approval.outputs.approved }}"
