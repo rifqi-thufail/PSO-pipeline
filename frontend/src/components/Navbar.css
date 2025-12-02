@@ -2,14 +2,52 @@
 .navbar-header {
   position: fixed;
   top: 12px;
-  left: 16px;
-  right: 16px;
+  left: 24px;
+  right: 24px;
   z-index: 1000;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 16px;
   backdrop-filter: blur(20px);
   border: none;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Nav Menu Item */
+.nav-menu-item {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: transparent;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  user-select: none;
+  margin: 4px 0;
+}
+
+.nav-menu-item:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.nav-menu-item.active {
+  background: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.nav-menu-item.active:hover {
+  transform: translateY(-1px);
+}
+
+.nav-menu-item span,
+.nav-menu-item .anticon {
+  pointer-events: none;
 }
 
 .navbar-header.scrolled {

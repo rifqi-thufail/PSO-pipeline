@@ -160,36 +160,7 @@ function Navbar({ user, onLogout }) {
           {menuItems.map((item) => (
             <div
               key={item.key}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '12px',
-                background: getSelectedKey() === item.key 
-                  ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%)'
-                  : 'transparent',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                textDecoration: 'none'
-              }}
-              onMouseEnter={(e) => {
-                if (getSelectedKey() !== item.key) {
-                  e.target.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)';
-                  e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (getSelectedKey() !== item.key) {
-                  e.target.style.background = 'transparent';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = 'none';
-                }
-              }}
+              className={`nav-menu-item ${getSelectedKey() === item.key ? 'active' : ''}`}
               onClick={() => {
                 if (item.key === 'dashboard') navigate('/');
                 else if (item.key === 'materials') navigate('/materials');

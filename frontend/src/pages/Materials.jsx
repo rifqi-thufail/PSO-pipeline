@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch } from 'antd';
+import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
 import MaterialForm from '../components/MaterialForm';
-import { getMaterials, deleteMaterial, getDropdowns, toggleMaterialStatus } from '../utils/api';
+import { getMaterials, deleteMaterial, getDropdowns, toggleMaterialStatus, getBackendURL } from '../utils/api';
 import { isDropdownHidden } from '../utils/dropdownFilter';
 
 const { Content } = Layout;
@@ -178,7 +178,25 @@ function Materials({ user, onLogout }) {
       dataIndex: 'images',
       key: 'images',
       width: 100,
-      render: (images) => images?.length || 0,
+      render: (images) => {
+        if (!images || images.length === 0) return '-';
+        return (
+          <Image.PreviewGroup>
+            <Space>
+              <Image
+                width={40}
+                height={40}
+                src={`${getBackendURL()}${images[0].url}`}
+                style={{ objectFit: 'cover', borderRadius: 4 }}
+                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgesYW0OLIoAAARlJREFUeJzt0DEBwAAIwLDtX+c9YgIGJi09dwEXLuwAPhiCBUOw8BsQ4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0I4G0IcAE9OQHxn/7vVgAAAABJRU5ErkJggg=="
+              />
+              {images.length > 1 && (
+                <Tag color="blue">+{images.length - 1}</Tag>
+              )}
+            </Space>
+          </Image.PreviewGroup>
+        );
+      },
     },
     {
       title: 'Created Date',

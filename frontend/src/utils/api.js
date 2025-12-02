@@ -10,6 +10,14 @@ const getBaseURL = () => {
   return process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 };
 
+// Get backend base URL for images
+export const getBackendURL = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return ''; // Same origin in production
+  }
+  return 'http://localhost:5001';
+};
+
 // Setup axios instance dengan base URL ke backend
 const api = axios.create({
   baseURL: getBaseURL(),

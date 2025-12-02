@@ -3,7 +3,7 @@ import { Layout, Card, Row, Col, Spin, message } from 'antd';
 import { AppstoreOutlined, CheckCircleOutlined, PieChartOutlined, StarOutlined, BoxPlotOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { getDashboardStats } from '../utils/api';
+import { getDashboardStats, getBackendURL } from '../utils/api';
 import './Dashboard.css';
 
 const { Content } = Layout;
@@ -159,7 +159,7 @@ function Dashboard({ user, onLogout }) {
                         material.images && material.images.length > 0 ? (
                           <img
                             alt={material.materialName}
-                            src={`${window.location.origin}${material.images[0].url}`}
+                            src={`${getBackendURL()}${material.images[0].url}`}
                             style={{ height: '200px', objectFit: 'cover' }}
                             onError={(e) => {
                               e.target.style.display = 'none';

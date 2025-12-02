@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Upload, Button, message, Space } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { createMaterial, updateMaterial, uploadMaterialImages, deleteMaterialImage, getDropdowns } from '../utils/api';
+import { createMaterial, updateMaterial, uploadMaterialImages, deleteMaterialImage, getDropdowns, getBackendURL } from '../utils/api';
 import { filterHiddenDropdowns } from '../utils/dropdownFilter';
 
 const { TextArea } = Input;
@@ -225,7 +225,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
               {existingImages.map((img) => (
                 <div key={img.url} style={{ position: 'relative', display: 'inline-block' }}>
                   <img
-                    src={`${window.location.origin}${img.url}`}
+                    src={`${getBackendURL()}${img.url}`}
                     alt="Material"
                     style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4 }}
                     onError={(e) => {
