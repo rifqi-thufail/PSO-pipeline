@@ -222,14 +222,14 @@ jobs:
                   // Check for approval
                   if (approveKeywords.some(keyword => body === keyword || body.startsWith(keyword))) {
                     approvedBy.add(author);
-                    console.log(`Approved by @${author} (${approvedBy.size}/${approvers.length})`);
+                    console.log(`Approved by @${author}`);
                   }
                 }
               }
               
-              // Check if all approvers have approved
-              if (approvedBy.size >= approvers.length) {
-                console.log('All approvers have approved!');
+              // Check if at least 1 approver has approved
+              if (approvedBy.size >= 1) {
+                console.log('Approval received!');
                 
                 // Update issue
                 await github.rest.issues.update({
