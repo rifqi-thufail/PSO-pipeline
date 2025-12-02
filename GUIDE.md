@@ -28,26 +28,24 @@ Project ini menggunakan GitHub Actions untuk CI/CD dengan 2 environment:
 │           ↓                                                     │
 │  2. GitHub Actions: Auto deploy ke Staging EC2                  │
 │           ↓                                                     │
-│  3. Test manual di staging environment                          │
+│  3. GitHub Actions: Auto trigger Production workflow            │
 │           ↓                                                     │
-│  4. Trigger Production Deploy (workflow_dispatch)               │
+│  4. GitHub Actions: Buat Issue untuk Approval                   │
 │           ↓                                                     │
-│  5. GitHub Actions: Buat Issue untuk Approval                   │
+│  5. Approver comment "approved" di Issue                        │
 │           ↓                                                     │
-│  6. Approver comment "approved" di Issue                        │
+│  6. GitHub Actions: Merge staging → main                        │
 │           ↓                                                     │
-│  7. GitHub Actions: Merge staging → main                        │
-│           ↓                                                     │
-│  8. Auto deploy ke Production EC2                               │
+│  7. Auto deploy ke Production EC2                               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Production Deployment dengan Approval
 
-Production deployment memerlukan approval via GitHub Issue:
+Production deployment **otomatis di-trigger** setelah staging deploy berhasil:
 
-1. **Trigger workflow**: Manual via GitHub Actions atau CLI
+1. **Push ke staging** → Staging deploy → **Otomatis trigger production workflow**
 2. **Issue dibuat otomatis**: Dengan label `deployment`, `production`, `awaiting-approval`
 3. **Approvers**: `rifqi-thufail`, `abyansyah052`, `akhtar2344`
 4. **Cara approve**: Comment salah satu: `approved`, `approve`, `lgtm`, `yes`
@@ -55,11 +53,12 @@ Production deployment memerlukan approval via GitHub Issue:
 6. **Timeout**: 60 menit (jika tidak ada approval, workflow cancelled)
 
 ```bash
-# Trigger production deploy via CLI
-gh workflow run production-deploy.yml --ref staging
-
-# Approve via CLI
+# Approve via CLI (setelah Issue dibuat otomatis)
+gh issue list --label "awaiting-approval" --state open
 gh issue comment <issue_number> --body "approved"
+
+# Atau manual trigger jika diperlukan
+gh workflow run production-deploy.yml --ref staging
 ```
 
 ### Step-by-Step: Cara Deploy Code Baru
@@ -85,15 +84,14 @@ git push origin staging
 #### Step 3: Test di Staging Environment
 - Buka http://13.212.157.243 (staging)
 - Test fitur yang baru ditambahkan
-- Pastikan tidak ada bug
+- **Issue approval otomatis dibuat** untuk production deployment
 
-#### Step 4: Deploy ke Production (dengan Approval)
+#### Step 4: Approve Production Deployment
 ```bash
-# Trigger production deployment
-gh workflow run production-deploy.yml --ref staging
+# Lihat Issue yang pending approval
+gh issue list --label "awaiting-approval" --state open
 
-# Tunggu Issue dibuat, lalu approve
-gh issue list --state open --limit 1
+# Approve deployment
 gh issue comment <issue_number> --body "approved"
 ```
 

@@ -184,3 +184,31 @@ jobs:
             sudo systemctl is-active nginx || true
             
             echo "Staging services check completed"
+
+  # Job 3: Auto trigger production deployment (buat Issue approval)
+  trigger-production:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Trigger Production Deployment Workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            console.log('🚀 Triggering production deployment workflow...');
+            
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'production-deploy.yml',
+              ref: 'staging',
+              inputs: {
+                description: `Auto-triggered from staging deployment (commit: ${context.sha.substring(0, 7)})`
+              }
+            });
+            
+            console.log('✅ Production deployment workflow triggered successfully!');
+            console.log('📋 An approval Issue will be created automatically.');
+            console.log('⏳ Approvers: rifqi-thufail, abyansyah052, akhtar2344');
