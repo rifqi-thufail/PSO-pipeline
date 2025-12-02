@@ -18,7 +18,7 @@ permissions:
   issues: write
 
 env:
-  APPROVERS: 'rifqi-thufail,abyansyah052'
+  APPROVERS: 'rifqi-thufail,abyansyah052,akhtar2344'
   APPROVAL_TIMEOUT: 30  # minutes
 
 jobs:
