@@ -1,4 +1,4 @@
-name: 🧪 Run Staging Tests
+name: Run Staging Tests
 
 on:
   workflow_dispatch:
