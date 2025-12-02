@@ -218,126 +218,126 @@ jobs:
           git merge origin/staging -m "Merge staging to main for production deploy (approved by ${{ needs.request-and-wait-approval.outputs.approver }})"
           git push origin main
 
-      - name: Prepare deployment package
-        run: |
-          mkdir -p deploy-package
-          
-          # Copy backend
-          cp -r backend deploy-package/
-          rm -rf deploy-package/backend/node_modules
-          rm -rf deploy-package/backend/tests
-          rm -rf deploy-package/backend/.env*
-          
-          # Copy frontend
-          cp -r frontend deploy-package/
-          rm -rf deploy-package/frontend/node_modules
-          rm -rf deploy-package/frontend/src
-          rm -rf deploy-package/frontend/.env*
-          
-          # Create archive
-          cd deploy-package
-          zip -r ../production-deploy.zip .
-          cd ..
-          
-          echo " Package created:"
-          ls -lh production-deploy.zip
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Setup SSH key
+      - name: Build frontend in GitHub Actions
+        working-directory: ./frontend
+        env:
+          REACT_APP_API_URL: http://${{ secrets.EC2_HOST }}:5001
+        run: |
+          npm ci
+          npm run build
+          cd build && zip -r ../frontend-build.zip .
+
+      - name: Create backend package
+        run: |
+          cd backend
+          zip -r ../backend-deploy.zip . -x "node_modules/*" -x "tests/*" -x ".env*"
+
+      - name: Deploy Backend via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            APP_DIR=$HOME/app
+            
+            echo "Setting up app directory..."
+            mkdir -p $APP_DIR/backend
+            
+            # Clone or update project for backend
+            if [ ! -d ~/PSO-pipeline ]; then
+              cd ~
+              git clone https://github.com/rifqi-thufail/PSO-pipeline.git
+            fi
+            cd ~/PSO-pipeline
+            git fetch origin
+            git reset --hard origin/main
+            git pull origin main
+            
+            # Copy backend files
+            cp -r backend/* $APP_DIR/backend/
+            
+            # Install backend dependencies
+            cd $APP_DIR/backend
+            npm ci --omit=dev
+            
+            # Create uploads directory
+            mkdir -p uploads/materials
+            chmod 755 uploads uploads/materials
+            
+            # Restart backend with PM2
+            pm2 delete material-api-prod 2>/dev/null || true
+            pm2 start server.js --name material-api-prod -i 1
+            pm2 save
+            
+            echo "Backend deployment completed!"
+            pm2 status
+
+      - name: Deploy Frontend Build
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/prod_key.pem
-          chmod 600 ~/.ssh/prod_key.pem
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Deploy to Production EC2
-        run: |
-          echo " Deploying to Production server..."
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           
-          # Upload package
-          scp -i ~/.ssh/prod_key.pem -o StrictHostKeyChecking=no \
-            production-deploy.zip \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          # Transfer pre-built frontend
+          scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
+            frontend/frontend-build.zip \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/frontend-build.zip
           
-          # Deploy on server
-          ssh -i ~/.ssh/prod_key.pem -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << DEPLOY_SCRIPT
-          
-          set -e
-          APP_DIR=\$HOME/app
-          
-          echo "Extracting deployment package..."
-          echo "User: \$(whoami), Home: \$HOME, App dir: \$APP_DIR"
-          
-          # Backup current deployment
-          if [ -d \$APP_DIR ]; then
-            sudo mv \$APP_DIR \$APP_DIR.backup.\$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
-          fi
-          
-          # Extract new deployment
-          mkdir -p \$APP_DIR
-          cd \$APP_DIR
-          unzip -o /tmp/production-deploy.zip
-          rm /tmp/production-deploy.zip
-          
-          # Install backend dependencies
-          echo "Installing backend dependencies..."
-          cd \$APP_DIR/backend
-          npm install --production
-          
-          # Create uploads directory
-          mkdir -p uploads/materials
-          chmod 755 uploads uploads/materials
-          
-          # Restart backend with PM2
-          echo "Restarting backend..."
-          pm2 delete material-api-prod 2>/dev/null || true
-          pm2 start server.js --name material-api-prod \
-            --env production \
-            -i 1 \
-            -- --max-old-space-size=256
-          pm2 save
-          
-          # Build and deploy frontend
-          echo "Building frontend..."
-          cd \$APP_DIR/frontend
-          npm install
-          
-          # Set production API URL
-          echo "REACT_APP_API_URL=http://${{ secrets.EC2_HOST }}:5001" > .env.production
-          npm run build
-          
-          # Deploy to nginx
-          sudo rm -rf /var/www/html/*
-          sudo cp -r build/* /var/www/html/
-          sudo chown -R nginx:nginx /var/www/html 2>/dev/null || sudo chown -R www-data:www-data /var/www/html 2>/dev/null || true
-          
-          # Restart nginx
-          sudo systemctl restart nginx
-          
-          echo "Production deployment completed!"
-          pm2 status
-          
-          DEPLOY_SCRIPT
+          # Deploy frontend to nginx
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            
+            # Backup current deployment
+            sudo cp -r /var/www/html /var/www/html.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+            
+            # Deploy new version
+            sudo rm -rf /var/www/html/*
+            mkdir -p ~/deploy-frontend
+            unzip -o -q ~/frontend-build.zip -d ~/deploy-frontend/
+            sudo cp -r ~/deploy-frontend/* /var/www/html/
+            sudo chown -R nginx:nginx /var/www/html/ 2>/dev/null || sudo chown -R www-data:www-data /var/www/html/ 2>/dev/null || true
+            sudo chmod -R 755 /var/www/html/
+            
+            # Restart nginx
+            sudo systemctl restart nginx
+            
+            # Cleanup
+            rm -f ~/frontend-build.zip
+            rm -rf ~/deploy-frontend
+            
+            echo "Frontend deployment completed!"
+          EOF
 
       - name: Health check
         run: |
-          echo " Running health checks..."
+          echo "Running health checks..."
           sleep 10
           
           # Check backend
           BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_HOST }}:5001" || echo "000")
           if [ "$BACKEND_STATUS" = "200" ]; then
-            echo " Backend is healthy (HTTP $BACKEND_STATUS)"
+            echo "Backend is healthy (HTTP $BACKEND_STATUS)"
           else
-            echo " Backend check returned HTTP $BACKEND_STATUS"
+            echo "Backend check returned HTTP $BACKEND_STATUS"
           fi
           
           # Check frontend
           FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_HOST }}" || echo "000")
           if [ "$FRONTEND_STATUS" = "200" ]; then
-            echo " Frontend is healthy (HTTP $FRONTEND_STATUS)"
+            echo "Frontend is healthy (HTTP $FRONTEND_STATUS)"
           else
-            echo " Frontend check returned HTTP $FRONTEND_STATUS"
+            echo "Frontend check returned HTTP $FRONTEND_STATUS"
           fi
 
       - name: Update approval issue
