@@ -100,17 +100,20 @@ jobs:
           npm ci
           npm run build
 
-      # Install backend dependencies di GitHub Actions
-      - name: Prepare backend
-        working-directory: ./backend
-        run: npm ci --omit=dev
-
-      # Create deployment ZIP (frontend build + backend dengan node_modules)
+      # Create deployment ZIP (frontend build + backend source TANPA node_modules)
+      # node_modules tidak di-include agar ZIP kecil (~5MB vs ~100MB)
       - name: Create deployment package
         run: |
-          mkdir -p deploy-package
+          mkdir -p deploy-package/backend
           cp -r frontend/build deploy-package/frontend-build
-          cp -r backend deploy-package/backend
+          # Copy backend tanpa node_modules
+          cp backend/package*.json deploy-package/backend/
+          cp backend/server.js deploy-package/backend/
+          cp -r backend/config deploy-package/backend/ 2>/dev/null || true
+          cp -r backend/middleware deploy-package/backend/ 2>/dev/null || true
+          cp -r backend/models deploy-package/backend/ 2>/dev/null || true
+          cp -r backend/routes deploy-package/backend/ 2>/dev/null || true
+          cp backend/schema.sql deploy-package/backend/ 2>/dev/null || true
           cd deploy-package && zip -r ../staging-deploy.zip .
           ls -lh ../staging-deploy.zip
 
@@ -125,7 +128,7 @@ jobs:
           source: "staging-deploy.zip"
           target: "/tmp"
 
-      # Deploy di EC2 (hanya unzip dan restart - sangat ringan)
+      # Deploy di EC2 (unzip + npm ci + restart - ringan)
       - name: Deploy to Staging EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -133,7 +136,7 @@ jobs:
           username: ${{ secrets.STAGING_EC2_USER }}
           key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
           port: 22
-          command_timeout: 3m
+          command_timeout: 5m
           script: |
             set -e
             
@@ -150,8 +153,11 @@ jobs:
             sudo rm -rf /var/www/html/staging/* 2>/dev/null || sudo rm -rf /var/www/html/*
             sudo cp -r frontend-build/* /var/www/html/staging/ 2>/dev/null || sudo cp -r frontend-build/* /var/www/html/
             
-            # Restart backend with PM2
+            # Install backend dependencies (npm ci cepat, hanya download)
             cd backend
+            npm ci --omit=dev
+            
+            # Restart backend with PM2
             pm2 restart pso-staging-backend || pm2 start server.js --name pso-staging-backend
             pm2 save
             
