@@ -107,11 +107,21 @@ jobs:
           key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # Navigate to application directory
-            cd /home/ubuntu/pso-pipeline-staging || cd ~/PSO-pipeline
+            # Set project directory
+            PROJECT_DIR="/home/ubuntu/pso-pipeline-staging"
+            
+            # Clone repo if not exists
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "Cloning repository..."
+              git clone https://github.com/rifqi-thufail/PSO-pipeline.git "$PROJECT_DIR"
+            fi
+            
+            # Navigate to project directory
+            cd "$PROJECT_DIR"
             
             # Pull latest changes from staging branch
             git fetch origin
+            git checkout staging
             git reset --hard origin/staging
             
             # Install/update backend dependencies
