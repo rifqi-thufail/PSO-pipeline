@@ -26,21 +26,40 @@ Project ini menggunakan GitHub Actions untuk CI/CD dengan 2 environment:
 │                                                                 │
 │  1. Developer push code ke branch STAGING                       │
 │           ↓                                                     │
-│  2. GitHub Actions: Run Unit Tests (backend + frontend)         │
+│  2. GitHub Actions: Auto deploy ke Staging EC2                  │
 │           ↓                                                     │
-│  3. Jika test PASS → Auto deploy ke Staging EC2                 │
+│  3. Test manual di staging environment                          │
 │           ↓                                                     │
-│  4. Test manual di staging environment                          │
+│  4. Trigger Production Deploy (workflow_dispatch)               │
 │           ↓                                                     │
-│  5. Buat Pull Request: staging → main                           │
+│  5. GitHub Actions: Buat Issue untuk Approval                   │
 │           ↓                                                     │
-│  6. Review & Merge PR                                           │
+│  6. Approver comment "approved" di Issue                        │
 │           ↓                                                     │
-│  7. GitHub Actions: Run Tests lagi                              │
+│  7. GitHub Actions: Merge staging → main                        │
 │           ↓                                                     │
-│  8. Jika test PASS → Auto deploy ke Production EC2              │
+│  8. Auto deploy ke Production EC2                               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### Production Deployment dengan Approval
+
+Production deployment memerlukan approval via GitHub Issue:
+
+1. **Trigger workflow**: Manual via GitHub Actions atau CLI
+2. **Issue dibuat otomatis**: Dengan label `deployment`, `production`, `awaiting-approval`
+3. **Approvers**: `rifqi-thufail`, `abyansyah052`, `akhtar2344`
+4. **Cara approve**: Comment salah satu: `approved`, `approve`, `lgtm`, `yes`
+5. **Cara deny**: Comment salah satu: `deny`, `denied`, `no`, `reject`
+6. **Timeout**: 60 menit (jika tidak ada approval, workflow cancelled)
+
+```bash
+# Trigger production deploy via CLI
+gh workflow run production-deploy.yml --ref staging
+
+# Approve via CLI
+gh issue comment <issue_number> --body "approved"
 ```
 
 ### Step-by-Step: Cara Deploy Code Baru
@@ -68,24 +87,17 @@ git push origin staging
 - Test fitur yang baru ditambahkan
 - Pastikan tidak ada bug
 
-#### Step 4: Buat Pull Request ke Main
+#### Step 4: Deploy ke Production (dengan Approval)
 ```bash
-# Via GitHub CLI
-gh pr create --base main --head staging --title "Release: deskripsi" --body "Deskripsi perubahan"
+# Trigger production deployment
+gh workflow run production-deploy.yml --ref staging
 
-# Atau via GitHub Web:
-# 1. Buka https://github.com/rifqi-thufail/PSO-pipeline
-# 2. Klik "Compare & pull request"
-# 3. Set base: main, compare: staging
-# 4. Klik "Create pull request"
+# Tunggu Issue dibuat, lalu approve
+gh issue list --state open --limit 1
+gh issue comment <issue_number> --body "approved"
 ```
 
-#### Step 5: Merge Pull Request
-1. Review perubahan di PR
-2. Klik "Merge pull request"
-3. Pipeline production akan jalan otomatis
-
-#### Step 6: Verifikasi Production
+#### Step 5: Verifikasi Production
 1. Buka https://github.com/rifqi-thufail/PSO-pipeline/actions
 2. Lihat workflow "Deploy to Production EC2"
 3. Tunggu sampai SUCCESS
@@ -128,6 +140,9 @@ gh run rerun <run_id> --repo rifqi-thufail/PSO-pipeline --failed
 | `npm test` failed | Unit test gagal | Fix code yang error |
 | `ssh: unable to authenticate` | SSH key salah | Cek GitHub Secrets |
 | `missing server host` | Secret tidak ada | Tambah secret di GitHub |
+| `Approval timeout` | Tidak ada yang approve dalam 60 menit | Trigger ulang workflow |
+| `Connection timed out` | EC2 tidak bisa diakses | Cek EC2 running di AWS Console |
+| `Permission denied (publickey)` | Key pair salah | Pastikan key sesuai dengan EC2 |
 | `No such file or directory` | Folder tidak ada di EC2 | Workflow akan auto-clone |
 
 ### GitHub Secrets yang Digunakan
@@ -135,11 +150,26 @@ gh run rerun <run_id> --repo rifqi-thufail/PSO-pipeline --failed
 | Secret | Deskripsi |
 |--------|-----------|
 | `EC2_HOST` | IP Production (13.250.124.111) |
-| `EC2_USER` | Username EC2 (ubuntu) |
-| `EC2_SSH_KEY` | Private key untuk SSH |
+| `EC2_USER` | Username EC2 Production (ec2-user) |
+| `EC2_SSH_KEY` | Private key untuk SSH Production (pso-key.pem) |
 | `STAGING_EC2_HOST` | IP Staging (13.212.157.243) |
-| `STAGING_EC2_USER` | Username EC2 staging |
-| `STAGING_SSH_PRIVATE_KEY` | Private key staging |
+| `STAGING_EC2_USER` | Username EC2 staging (ubuntu) |
+| `STAGING_SSH_PRIVATE_KEY` | Private key staging (pso-singapore.pem) |
+
+### EC2 Server Details
+
+| Environment | IP | User | Key File | OS |
+|-------------|-----|------|----------|-----|
+| **Staging** | 13.212.157.243 | ubuntu | pso-singapore.pem | Ubuntu |
+| **Production** | 13.250.124.111 | ec2-user | pso-key.pem | Amazon Linux 2023 |
+
+### Nginx Configuration
+
+Kedua server menggunakan nginx dengan konfigurasi:
+- **Port 80**: Frontend (React build)
+- **`/api/*`**: Proxy ke backend (localhost:5001)
+- **`/uploads/*`**: Serve file uploads dari backend
+- **Max upload size**: 5MB
 
 ---
 

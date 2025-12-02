@@ -65,7 +65,7 @@ function Dashboard({ user, onLogout }) {
           {/* Welcome Section */}
           <div className="dashboard-section">
             <h1 className="dashboard-title">Welcome, {user?.name}!</h1>
-            <p className="dashboard-subtitle">Here's your material management overview</p>
+            <p className="dashboard-subtitle">Here's your material management overviews</p>
           </div>
 
           {/* Statistics Cards */}
