@@ -93,23 +93,39 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install and build frontend
+      # Build frontend di GitHub Actions (resource besar)
+      - name: Build frontend
         working-directory: ./frontend
         run: |
           npm ci
           npm run build
 
-      - name: Upload frontend build to EC2
+      # Install backend dependencies di GitHub Actions
+      - name: Prepare backend
+        working-directory: ./backend
+        run: npm ci --omit=dev
+
+      # Create deployment ZIP (frontend build + backend dengan node_modules)
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy-package
+          cp -r frontend/build deploy-package/frontend-build
+          cp -r backend deploy-package/backend
+          cd deploy-package && zip -r ../staging-deploy.zip .
+          ls -lh ../staging-deploy.zip
+
+      # Upload ZIP ke EC2
+      - name: Upload deployment package to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.STAGING_EC2_HOST }}
           username: ${{ secrets.STAGING_EC2_USER }}
           key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
           port: 22
-          source: "frontend/build/*"
-          target: "/tmp/frontend-build"
-          strip_components: 2
+          source: "staging-deploy.zip"
+          target: "/tmp"
 
+      # Deploy di EC2 (hanya unzip dan restart - sangat ringan)
       - name: Deploy to Staging EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -117,44 +133,35 @@ jobs:
           username: ${{ secrets.STAGING_EC2_USER }}
           key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
           port: 22
-          command_timeout: 5m
+          command_timeout: 3m
           script: |
-            # Set project directory
+            set -e
+            
             PROJECT_DIR="/home/ubuntu/pso-pipeline-staging"
             
-            # Clone repo if not exists
-            if [ ! -d "$PROJECT_DIR" ]; then
-              echo "Cloning repository..."
-              git clone https://github.com/rifqi-thufail/PSO-pipeline.git "$PROJECT_DIR"
-            fi
-            
-            # Navigate to project directory
+            # Create project directory if not exists
+            mkdir -p "$PROJECT_DIR"
             cd "$PROJECT_DIR"
             
-            # Pull latest changes from staging branch
-            git fetch origin
-            git checkout staging
-            git reset --hard origin/staging
+            # Unzip deployment package (overwrite existing)
+            unzip -o /tmp/staging-deploy.zip -d .
             
-            # Install/update backend dependencies
+            # Deploy frontend to nginx
+            sudo rm -rf /var/www/html/staging/* 2>/dev/null || sudo rm -rf /var/www/html/*
+            sudo cp -r frontend-build/* /var/www/html/staging/ 2>/dev/null || sudo cp -r frontend-build/* /var/www/html/
+            
+            # Restart backend with PM2
             cd backend
-            npm ci --omit=dev
-            
-            # Restart backend service with PM2
             pm2 restart pso-staging-backend || pm2 start server.js --name pso-staging-backend
             pm2 save
-            
-            # Copy pre-built frontend to nginx directory (built in GitHub Actions)
-            sudo rm -rf /var/www/html/staging/* 2>/dev/null || sudo rm -rf /var/www/html/*
-            sudo cp -r /tmp/frontend-build/* /var/www/html/staging/ 2>/dev/null || sudo cp -r /tmp/frontend-build/* /var/www/html/
-            
-            # Cleanup temp files
-            rm -rf /tmp/frontend-build
             
             # Restart nginx
             sudo systemctl restart nginx
             
-            echo "Staging deployment completed successfully"
+            # Cleanup
+            rm -f /tmp/staging-deploy.zip
+            
+            echo "Staging ZIP deployment completed successfully"
 
       - name: Verify Deployment
         uses: appleboy/ssh-action@v1.0.3
