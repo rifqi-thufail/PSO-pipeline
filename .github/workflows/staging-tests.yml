@@ -24,19 +24,19 @@ jobs:
       
       - name: Check Staging Server
         run: |
-          echo "🔍 Checking staging server connectivity..."
+          echo "Checking staging server connectivity..."
           HEALTH=$(curl -s --max-time 10 "http://13.212.157.243:5001" || echo "failed")
           if echo "$HEALTH" | grep -q "Material Management API"; then
-            echo "✅ Staging backend is accessible"
+            echo "Staging backend is accessible"
           else
-            echo "❌ Staging backend not accessible"
+            echo "Staging backend not accessible"
             exit 1
           fi
 
       - name: Setup Test Environment
         id: setup
         run: |
-          echo "🔐 Setting up authentication..."
+          echo "Setting up authentication..."
           COOKIE_FILE=$(mktemp)
           echo "COOKIE_FILE=$COOKIE_FILE" >> $GITHUB_OUTPUT
           
@@ -57,9 +57,9 @@ jobs:
           fi
           
           if echo "$LOGIN" | grep -q '"success":true'; then
-            echo "✅ Authentication successful"
+            echo "Authentication successful"
           else
-            echo "❌ Authentication failed"
+            echo "Authentication failed"
             exit 1
           fi
 
@@ -67,9 +67,9 @@ jobs:
         if: inputs.test_type == 'all' || inputs.test_type == 'frontend-workflow'
         run: |
           echo ""
-          echo "════════════════════════════════════════════════"
-          echo "🖥️  FRONTEND WORKFLOW TESTS"
-          echo "════════════════════════════════════════════════"
+          echo "========================================"
+          echo "  FRONTEND WORKFLOW TESTS"
+          echo "========================================"
           
           COOKIE_FILE=$(mktemp)
           curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
@@ -80,47 +80,47 @@ jobs:
           FAILED=0
           
           # Test Auth Check
-          echo -n "► Auth Check: "
+          echo -n "Auth Check: "
           AUTH=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/auth/check")
           if echo "$AUTH" | grep -q '"isAuthenticated":true'; then
-            echo "✅ PASS"
-            ((PASSED++))
+            echo "PASS"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL"
-            ((FAILED++))
+            echo "FAIL"
+            FAILED=$((FAILED + 1))
           fi
           
           # Test Dashboard
-          echo -n "► Dashboard Stats: "
+          echo -n "Dashboard Stats: "
           DASHBOARD=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dashboard/stats")
           if echo "$DASHBOARD" | grep -q 'totalMaterials'; then
-            echo "✅ PASS"
-            ((PASSED++))
+            echo "PASS"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL"
-            ((FAILED++))
+            echo "FAIL"
+            FAILED=$((FAILED + 1))
           fi
           
           # Test Materials
-          echo -n "► Materials List: "
+          echo -n "Materials List: "
           MATERIALS=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/materials?page=1&limit=5")
           if echo "$MATERIALS" | grep -q 'materials'; then
-            echo "✅ PASS"
-            ((PASSED++))
+            echo "PASS"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL"
-            ((FAILED++))
+            echo "FAIL"
+            FAILED=$((FAILED + 1))
           fi
           
           # Test Dropdowns
-          echo -n "► Dropdowns: "
+          echo -n "Dropdowns: "
           DROPDOWNS=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dropdowns/all/options")
           if echo "$DROPDOWNS" | grep -q 'divisions'; then
-            echo "✅ PASS"
-            ((PASSED++))
+            echo "PASS"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL"
-            ((FAILED++))
+            echo "FAIL"
+            FAILED=$((FAILED + 1))
           fi
           
           echo ""
@@ -132,9 +132,9 @@ jobs:
         if: inputs.test_type == 'all' || inputs.test_type == 'data-correlation'
         run: |
           echo ""
-          echo "════════════════════════════════════════════════"
-          echo "📊 DATA CORRELATION TESTS"
-          echo "════════════════════════════════════════════════"
+          echo "========================================"
+          echo "  DATA CORRELATION TESTS"
+          echo "========================================"
           
           COOKIE_FILE=$(mktemp)
           curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
@@ -156,23 +156,23 @@ jobs:
           DROP_DIVS=$(echo "$DIVISIONS" | python3 -c "import sys, json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
           
           # Test Total Materials
-          echo -n "► Dashboard Total = Materials Total: "
+          echo -n "Dashboard Total = Materials Total: "
           if [ "$DASH_TOTAL" == "$MAT_TOTAL" ]; then
-            echo "✅ PASS ($DASH_TOTAL = $MAT_TOTAL)"
-            ((PASSED++))
+            echo "PASS ($DASH_TOTAL = $MAT_TOTAL)"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL ($DASH_TOTAL ≠ $MAT_TOTAL)"
-            ((FAILED++))
+            echo "FAIL ($DASH_TOTAL != $MAT_TOTAL)"
+            FAILED=$((FAILED + 1))
           fi
           
           # Test Divisions
-          echo -n "► Dashboard Divisions = Dropdown Divisions: "
+          echo -n "Dashboard Divisions = Dropdown Divisions: "
           if [ "$DASH_DIVS" == "$DROP_DIVS" ]; then
-            echo "✅ PASS ($DASH_DIVS = $DROP_DIVS)"
-            ((PASSED++))
+            echo "PASS ($DASH_DIVS = $DROP_DIVS)"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL ($DASH_DIVS ≠ $DROP_DIVS)"
-            ((FAILED++))
+            echo "FAIL ($DASH_DIVS != $DROP_DIVS)"
+            FAILED=$((FAILED + 1))
           fi
           
           echo ""
@@ -184,9 +184,9 @@ jobs:
         if: inputs.test_type == 'all' || inputs.test_type == 'consistency'
         run: |
           echo ""
-          echo "════════════════════════════════════════════════"
-          echo "🔄 CONSISTENCY TESTS (camelCase Format)"
-          echo "════════════════════════════════════════════════"
+          echo "========================================"
+          echo "  CONSISTENCY TESTS (camelCase Format)"
+          echo "========================================"
           
           COOKIE_FILE=$(mktemp)
           curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
@@ -197,25 +197,25 @@ jobs:
           FAILED=0
           
           # Test Material Format
-          echo -n "► Material uses camelCase: "
+          echo -n "Material uses camelCase: "
           MATERIAL=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/materials?page=1&limit=1")
           if echo "$MATERIAL" | grep -q 'materialName'; then
-            echo "✅ PASS"
-            ((PASSED++))
+            echo "PASS"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL"
-            ((FAILED++))
+            echo "FAIL"
+            FAILED=$((FAILED + 1))
           fi
           
           # Test Dropdown Format
-          echo -n "► Dropdown uses camelCase: "
+          echo -n "Dropdown uses camelCase: "
           DROPDOWN=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dropdowns/division")
           if echo "$DROPDOWN" | grep -q 'isActive'; then
-            echo "✅ PASS"
-            ((PASSED++))
+            echo "PASS"
+            PASSED=$((PASSED + 1))
           else
-            echo "❌ FAIL"
-            ((FAILED++))
+            echo "FAIL"
+            FAILED=$((FAILED + 1))
           fi
           
           echo ""
@@ -227,9 +227,9 @@ jobs:
         if: inputs.test_type == 'all' || inputs.test_type == 'soft-delete'
         run: |
           echo ""
-          echo "════════════════════════════════════════════════"
-          echo "🗑️  SOFT DELETE TESTS"
-          echo "════════════════════════════════════════════════"
+          echo "========================================"
+          echo "  SOFT DELETE TESTS"
+          echo "========================================"
           
           COOKIE_FILE=$(mktemp)
           curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
@@ -243,64 +243,64 @@ jobs:
           ACTIVE_DIVS=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dropdowns/division")
           DIV_COUNT=$(echo "$ACTIVE_DIVS" | python3 -c "import sys, json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
           
-          echo -n "► Active Divisions Available: "
+          echo -n "Active Divisions Available: "
           if [ "$DIV_COUNT" -ge 1 ]; then
-            echo "✅ PASS ($DIV_COUNT found)"
-            ((PASSED++))
+            echo "PASS ($DIV_COUNT found)"
+            PASSED=$((PASSED + 1))
             
             # Get first division ID
             DIV_ID=$(echo "$ACTIVE_DIVS" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d[0]['id'] if d else 0)" 2>/dev/null)
             
             if [ "$DIV_ID" -gt 0 ]; then
               # Soft delete
-              echo -n "► Soft Delete Division: "
+              echo -n "Soft Delete Division: "
               DELETE_RESP=$(curl -s -b "$COOKIE_FILE" -X DELETE "http://13.212.157.243:5001/api/dropdowns/$DIV_ID")
               if echo "$DELETE_RESP" | grep -q '"success":true'; then
-                echo "✅ PASS"
-                ((PASSED++))
+                echo "PASS"
+                PASSED=$((PASSED + 1))
                 
                 # Verify hidden
-                echo -n "► Hidden from Active List: "
+                echo -n "Hidden from Active List: "
                 AFTER=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dropdowns/division")
                 IN_LIST=$(echo "$AFTER" | python3 -c "import sys, json; d=json.load(sys.stdin); print(any(x['id']==$DIV_ID for x in d))" 2>/dev/null)
                 if [ "$IN_LIST" == "False" ]; then
-                  echo "✅ PASS"
-                  ((PASSED++))
+                  echo "PASS"
+                  PASSED=$((PASSED + 1))
                 else
-                  echo "❌ FAIL"
-                  ((FAILED++))
+                  echo "FAIL"
+                  FAILED=$((FAILED + 1))
                 fi
                 
                 # Verify in all list
-                echo -n "► Preserved in Database: "
+                echo -n "Preserved in Database: "
                 ALL=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dropdowns/division?activeOnly=false")
                 IN_ALL=$(echo "$ALL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(any(x['id']==$DIV_ID for x in d))" 2>/dev/null)
                 if [ "$IN_ALL" == "True" ]; then
-                  echo "✅ PASS"
-                  ((PASSED++))
+                  echo "PASS"
+                  PASSED=$((PASSED + 1))
                 else
-                  echo "❌ FAIL"
-                  ((FAILED++))
+                  echo "FAIL"
+                  FAILED=$((FAILED + 1))
                 fi
                 
                 # Reactivate
-                echo -n "► Reactivate Division: "
+                echo -n "Reactivate Division: "
                 TOGGLE=$(curl -s -b "$COOKIE_FILE" -X PUT "http://13.212.157.243:5001/api/dropdowns/$DIV_ID/toggle")
                 if echo "$TOGGLE" | grep -q '"isActive":true'; then
-                  echo "✅ PASS"
-                  ((PASSED++))
+                  echo "PASS"
+                  PASSED=$((PASSED + 1))
                 else
-                  echo "❌ FAIL"
-                  ((FAILED++))
+                  echo "FAIL"
+                  FAILED=$((FAILED + 1))
                 fi
               else
-                echo "❌ FAIL"
-                ((FAILED++))
+                echo "FAIL"
+                FAILED=$((FAILED + 1))
               fi
             fi
           else
-            echo "❌ FAIL (no divisions)"
-            ((FAILED++))
+            echo "FAIL (no divisions)"
+            FAILED=$((FAILED + 1))
           fi
           
           echo ""
@@ -312,10 +312,10 @@ jobs:
         if: always()
         run: |
           echo ""
-          echo "════════════════════════════════════════════════"
-          echo "📋 TEST SUMMARY"
-          echo "════════════════════════════════════════════════"
+          echo "========================================"
+          echo "  TEST SUMMARY"
+          echo "========================================"
           echo "Environment: STAGING (13.212.157.243)"
           echo "Test Type: ${{ inputs.test_type }}"
           echo "Status: ${{ job.status }}"
-          echo "════════════════════════════════════════════════"
+          echo "========================================"
