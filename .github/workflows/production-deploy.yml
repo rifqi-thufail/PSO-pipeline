@@ -260,25 +260,28 @@ jobs:
           
           # Deploy on server
           ssh -i ~/.ssh/prod_key.pem -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'DEPLOY_SCRIPT'
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << DEPLOY_SCRIPT
           
           set -e
-          echo " Extracting deployment package..."
+          APP_DIR=\$HOME/app
+          
+          echo "Extracting deployment package..."
+          echo "User: \$(whoami), Home: \$HOME, App dir: \$APP_DIR"
           
           # Backup current deployment
-          if [ -d /home/ubuntu/app ]; then
-            sudo mv /home/ubuntu/app /home/ubuntu/app.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+          if [ -d \$APP_DIR ]; then
+            sudo mv \$APP_DIR \$APP_DIR.backup.\$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
           fi
           
           # Extract new deployment
-          mkdir -p /home/ubuntu/app
-          cd /home/ubuntu/app
+          mkdir -p \$APP_DIR
+          cd \$APP_DIR
           unzip -o /tmp/production-deploy.zip
           rm /tmp/production-deploy.zip
           
           # Install backend dependencies
-          echo " Installing backend dependencies..."
-          cd /home/ubuntu/app/backend
+          echo "Installing backend dependencies..."
+          cd \$APP_DIR/backend
           npm install --production
           
           # Create uploads directory
@@ -286,7 +289,7 @@ jobs:
           chmod 755 uploads uploads/materials
           
           # Restart backend with PM2
-          echo " Restarting backend..."
+          echo "Restarting backend..."
           pm2 delete material-api-prod 2>/dev/null || true
           pm2 start server.js --name material-api-prod \
             --env production \
@@ -295,8 +298,8 @@ jobs:
           pm2 save
           
           # Build and deploy frontend
-          echo "🏗️ Building frontend..."
-          cd /home/ubuntu/app/frontend
+          echo "Building frontend..."
+          cd \$APP_DIR/frontend
           npm install
           
           # Set production API URL
@@ -306,12 +309,12 @@ jobs:
           # Deploy to nginx
           sudo rm -rf /var/www/html/*
           sudo cp -r build/* /var/www/html/
-          sudo chown -R www-data:www-data /var/www/html
+          sudo chown -R nginx:nginx /var/www/html 2>/dev/null || sudo chown -R www-data:www-data /var/www/html 2>/dev/null || true
           
           # Restart nginx
           sudo systemctl restart nginx
           
-          echo " Production deployment completed!"
+          echo "Production deployment completed!"
           pm2 status
           
           DEPLOY_SCRIPT
