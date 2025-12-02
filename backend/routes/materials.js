@@ -36,11 +36,13 @@ const fileFilter = (req, file, cb) => {
   });
   
   const allowedTypes = /jpeg|jpg|png/;
+  const allowedMimeTypes = /image\/(jpeg|jpg|png)|application\/octet-stream/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  const mimetype = allowedMimeTypes.test(file.mimetype);
 
   console.log('Validation result:', { extname, mimetype });
 
+  // Accept if extension is valid AND (mimetype is valid OR mimetype is octet-stream with valid extension)
   if (extname && mimetype) {
     cb(null, true);
   } else {
