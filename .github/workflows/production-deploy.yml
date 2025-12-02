@@ -239,84 +239,80 @@ jobs:
           cd backend
           zip -r ../backend-deploy.zip . -x "node_modules/*" -x "tests/*" -x ".env*"
 
-      - name: Deploy Backend via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            set -e
-            APP_DIR=$HOME/app
-            
-            echo "Setting up app directory..."
-            mkdir -p $APP_DIR/backend
-            
-            # Clone or update project for backend
-            if [ ! -d ~/PSO-pipeline ]; then
-              cd ~
-              git clone https://github.com/rifqi-thufail/PSO-pipeline.git
-            fi
-            cd ~/PSO-pipeline
-            git fetch origin
-            git reset --hard origin/main
-            git pull origin main
-            
-            # Copy backend files
-            cp -r backend/* $APP_DIR/backend/
-            
-            # Install backend dependencies
-            cd $APP_DIR/backend
-            npm ci --omit=dev
-            
-            # Create uploads directory
-            mkdir -p uploads/materials
-            chmod 755 uploads uploads/materials
-            
-            # Restart backend with PM2
-            pm2 delete material-api-prod 2>/dev/null || true
-            pm2 start server.js --name material-api-prod -i 1
-            pm2 save
-            
-            echo "Backend deployment completed!"
-            pm2 status
-
-      - name: Deploy Frontend Build
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy Backend
+        run: |
+          # Transfer backend package
+          scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 \
+            backend-deploy.zip \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/backend-deploy.zip
           
+          # Deploy backend on server
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          set -e
+          APP_DIR=$HOME/app
+          
+          echo "Setting up backend..."
+          mkdir -p $APP_DIR/backend
+          
+          # Extract backend
+          cd $APP_DIR/backend
+          unzip -o -q ~/backend-deploy.zip
+          rm ~/backend-deploy.zip
+          
+          # Install dependencies
+          npm ci --omit=dev
+          
+          # Create uploads directory
+          mkdir -p uploads/materials
+          chmod 755 uploads uploads/materials
+          
+          # Restart backend with PM2
+          pm2 delete material-api-prod 2>/dev/null || true
+          pm2 start server.js --name material-api-prod -i 1
+          pm2 save
+          
+          echo "Backend deployment completed!"
+          pm2 status
+          EOF
+
+      - name: Deploy Frontend Build
+        run: |
           # Transfer pre-built frontend
-          scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 \
             frontend/frontend-build.zip \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/frontend-build.zip
           
           # Deploy frontend to nginx
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            
-            # Backup current deployment
-            sudo cp -r /var/www/html /var/www/html.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
-            
-            # Deploy new version
-            sudo rm -rf /var/www/html/*
-            mkdir -p ~/deploy-frontend
-            unzip -o -q ~/frontend-build.zip -d ~/deploy-frontend/
-            sudo cp -r ~/deploy-frontend/* /var/www/html/
-            sudo chown -R nginx:nginx /var/www/html/ 2>/dev/null || sudo chown -R www-data:www-data /var/www/html/ 2>/dev/null || true
-            sudo chmod -R 755 /var/www/html/
-            
-            # Restart nginx
-            sudo systemctl restart nginx
-            
-            # Cleanup
-            rm -f ~/frontend-build.zip
-            rm -rf ~/deploy-frontend
-            
-            echo "Frontend deployment completed!"
+          
+          # Backup current deployment
+          sudo cp -r /var/www/html /var/www/html.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+          
+          # Deploy new version
+          sudo rm -rf /var/www/html/*
+          mkdir -p ~/deploy-frontend
+          unzip -o -q ~/frontend-build.zip -d ~/deploy-frontend/
+          sudo cp -r ~/deploy-frontend/* /var/www/html/
+          sudo chown -R nginx:nginx /var/www/html/ 2>/dev/null || sudo chown -R www-data:www-data /var/www/html/ 2>/dev/null || true
+          sudo chmod -R 755 /var/www/html/
+          
+          # Restart nginx
+          sudo systemctl restart nginx
+          
+          # Cleanup
+          rm -f ~/frontend-build.zip
+          rm -rf ~/deploy-frontend
+          
+          echo "Frontend deployment completed!"
           EOF
 
       - name: Health check
