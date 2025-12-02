@@ -282,6 +282,9 @@ jobs:
             # Unzip deployment package (overwrite existing)
             unzip -o /tmp/production-deploy.zip -d .
             
+            # Ensure nginx html directory exists
+            sudo mkdir -p /var/www/html
+            
             # Deploy frontend to nginx
             sudo rm -rf /var/www/html/*
             sudo cp -r frontend-build/* /var/www/html/
