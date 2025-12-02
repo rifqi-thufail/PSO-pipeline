@@ -1,0 +1,174 @@
+name: 🚀 Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        default: ''
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: github.event.inputs.confirm != 'deploy'
+        run: |
+          echo "❌ Deployment cancelled. You must type 'deploy' to confirm."
+          exit 1
+
+  test-staging:
+    needs: confirm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run staging tests before production deploy
+        run: |
+          echo "🧪 Running staging tests..."
+          
+          # Login
+          COOKIE_FILE=$(mktemp)
+          LOGIN=$(curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"staging@test.com","password":"staging123"}' 2>/dev/null)
+          
+          if echo "$LOGIN" | grep -q '"success":true'; then
+            echo "✅ Login successful"
+          else
+            # Register if not exists
+            curl -s -X POST "http://13.212.157.243:5001/api/auth/register" \
+              -H "Content-Type: application/json" \
+              -d '{"name":"Test Staging","email":"staging@test.com","password":"staging123"}' > /dev/null 2>&1
+            
+            LOGIN=$(curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
+              -H "Content-Type: application/json" \
+              -d '{"email":"staging@test.com","password":"staging123"}' 2>/dev/null)
+          fi
+          
+          # Test endpoints
+          echo "🔍 Testing API endpoints..."
+          
+          DASHBOARD=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dashboard/stats")
+          if echo "$DASHBOARD" | grep -q 'totalMaterials'; then
+            echo "✅ Dashboard API working"
+          else
+            echo "❌ Dashboard API failed"
+            exit 1
+          fi
+          
+          MATERIALS=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/materials?page=1&limit=5")
+          if echo "$MATERIALS" | grep -q 'materials'; then
+            echo "✅ Materials API working"
+          else
+            echo "❌ Materials API failed"
+            exit 1
+          fi
+          
+          echo "✅ All staging tests passed!"
+
+  deploy:
+    needs: test-staging
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+        env:
+          CI: false
+      
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy-package
+          cp -r backend deploy-package/
+          cp -r frontend/build deploy-package/frontend-build
+          rm -rf deploy-package/backend/node_modules
+          rm -rf deploy-package/backend/uploads/materials/*
+          cd deploy-package && zip -r ../production-deploy.zip . -x "*.git*"
+      
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/prod-key.pem
+          chmod 600 ~/.ssh/prod-key.pem
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to Production EC2
+        run: |
+          echo "📦 Uploading package to production..."
+          scp -i ~/.ssh/prod-key.pem -o StrictHostKeyChecking=no \
+            production-deploy.zip \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          
+          echo "🚀 Deploying on production server..."
+          ssh -i ~/.ssh/prod-key.pem -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'DEPLOY_SCRIPT'
+            
+            set -e
+            cd /home/ubuntu
+            
+            # Backup current deployment
+            if [ -d "pso-pipeline-prod" ]; then
+              cp -r pso-pipeline-prod pso-pipeline-prod-backup-$(date +%Y%m%d%H%M%S)
+            fi
+            
+            # Extract new deployment
+            mkdir -p pso-pipeline-prod
+            cd pso-pipeline-prod
+            unzip -o /tmp/production-deploy.zip
+            
+            # Install backend dependencies
+            cd backend
+            npm ci --production
+            
+            # Preserve .env file
+            if [ ! -f .env ]; then
+              echo "⚠️  WARNING: .env file not found! Please configure manually."
+            fi
+            
+            # Restart backend
+            pm2 restart pso-prod-backend || pm2 start server.js --name pso-prod-backend
+            
+            # Deploy frontend
+            sudo rm -rf /var/www/html/*
+            sudo cp -r ../frontend-build/* /var/www/html/
+            sudo chown -R www-data:www-data /var/www/html/
+            
+            # Create uploads symlink
+            sudo ln -sf /home/ubuntu/pso-pipeline-prod/backend/uploads /var/www/html/uploads
+            
+            echo "✅ Production deployment complete!"
+          DEPLOY_SCRIPT
+
+      - name: Verify Production Deployment
+        run: |
+          echo "🔍 Verifying production deployment..."
+          sleep 10
+          
+          HEALTH=$(curl -s --max-time 10 "http://${{ secrets.EC2_HOST }}:5001" || echo "failed")
+          if echo "$HEALTH" | grep -q "Material Management API"; then
+            echo "✅ Production backend is running!"
+          else
+            echo "❌ Production backend health check failed"
+            exit 1
+          fi
+          
+          echo "🎉 Production deployment verified successfully!"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/prod-key.pem
