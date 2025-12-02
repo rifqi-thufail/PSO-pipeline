@@ -245,9 +245,9 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.PROD_EC2_SSH_KEY }}" > ~/.ssh/prod_key.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/prod_key.pem
           chmod 600 ~/.ssh/prod_key.pem
-          ssh-keyscan -H ${{ secrets.PROD_EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy to Production EC2
         run: |
@@ -256,11 +256,11 @@ jobs:
           # Upload package
           scp -i ~/.ssh/prod_key.pem -o StrictHostKeyChecking=no \
             production-deploy.zip \
-            ${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }}:/tmp/
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
           
           # Deploy on server
           ssh -i ~/.ssh/prod_key.pem -o StrictHostKeyChecking=no \
-            ${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }} << 'DEPLOY_SCRIPT'
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'DEPLOY_SCRIPT'
           
           set -e
           echo " Extracting deployment package..."
@@ -300,7 +300,7 @@ jobs:
           npm install
           
           # Set production API URL
-          echo "REACT_APP_API_URL=http://${{ secrets.PROD_EC2_HOST }}:5001" > .env.production
+          echo "REACT_APP_API_URL=http://${{ secrets.EC2_HOST }}:5001" > .env.production
           npm run build
           
           # Deploy to nginx
@@ -322,7 +322,7 @@ jobs:
           sleep 10
           
           # Check backend
-          BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.PROD_EC2_HOST }}:5001" || echo "000")
+          BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_HOST }}:5001" || echo "000")
           if [ "$BACKEND_STATUS" = "200" ]; then
             echo " Backend is healthy (HTTP $BACKEND_STATUS)"
           else
@@ -330,7 +330,7 @@ jobs:
           fi
           
           # Check frontend
-          FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.PROD_EC2_HOST }}" || echo "000")
+          FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_HOST }}" || echo "000")
           if [ "$FRONTEND_STATUS" = "200" ]; then
             echo " Frontend is healthy (HTTP $FRONTEND_STATUS)"
           else
@@ -353,8 +353,8 @@ jobs:
             **Approved by:** @${{ needs.request-and-wait-approval.outputs.approver }}
             
             ###  Production URLs
-            - **Frontend:** http://${{ secrets.PROD_EC2_HOST }}
-            - **Backend API:** http://${{ secrets.PROD_EC2_HOST }}:5001
+            - **Frontend:** http://${{ secrets.EC2_HOST }}
+            - **Backend API:** http://${{ secrets.EC2_HOST }}:5001
             
             ###  Health Check Results
             Deployment verified and running.`
