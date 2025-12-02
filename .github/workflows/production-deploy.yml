@@ -3,172 +3,401 @@ name: Deploy to Production
 on:
   workflow_dispatch:
     inputs:
-      confirm:
-        description: 'Type "deploy" to confirm production deployment'
-        required: true
-        default: ''
+      skip_tests:
+        description: 'Skip staging tests before deploy'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  APPROVERS: 'rifqi-thufail,abyansyah052'
+  APPROVAL_TIMEOUT: 30  # minutes
 
 jobs:
-  confirm:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate confirmation
-        if: github.event.inputs.confirm != 'deploy'
-        run: |
-          echo "❌ Deployment cancelled. You must type 'deploy' to confirm."
-          exit 1
-
-  test-staging:
-    needs: confirm
+  # Job 1: Run staging tests first
+  run-staging-tests:
+    if: inputs.skip_tests != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: Run staging tests before production deploy
+      - name: Check Staging Server
         run: |
-          echo "🧪 Running staging tests..."
+          echo "Checking staging server..."
+          HEALTH=$(curl -s --max-time 10 "http://13.212.157.243:5001" || echo "failed")
+          if echo "$HEALTH" | grep -q "Material Management API"; then
+            echo "Staging server is accessible"
+          else
+            echo "Staging server not accessible"
+            exit 1
+          fi
+
+      - name: Run Quick Tests
+        run: |
+          echo "Running quick staging tests..."
           
-          # Login
           COOKIE_FILE=$(mktemp)
-          LOGIN=$(curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
+          curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
             -H "Content-Type: application/json" \
-            -d '{"email":"staging@test.com","password":"staging123"}' 2>/dev/null)
+            -d '{"email":"staging@test.com","password":"staging123"}' > /dev/null
           
-          if echo "$LOGIN" | grep -q '"success":true'; then
-            echo "✅ Login successful"
-          else
-            # Register if not exists
-            curl -s -X POST "http://13.212.157.243:5001/api/auth/register" \
-              -H "Content-Type: application/json" \
-              -d '{"name":"Test Staging","email":"staging@test.com","password":"staging123"}' > /dev/null 2>&1
-            
-            LOGIN=$(curl -s -c "$COOKIE_FILE" -X POST "http://13.212.157.243:5001/api/auth/login" \
-              -H "Content-Type: application/json" \
-              -d '{"email":"staging@test.com","password":"staging123"}' 2>/dev/null)
+          # Test Auth
+          AUTH=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/auth/check")
+          if ! echo "$AUTH" | grep -q '"isAuthenticated":true'; then
+            echo "Auth test failed"
+            exit 1
           fi
+          echo "Auth test: PASS"
           
-          # Test endpoints
-          echo "🔍 Testing API endpoints..."
-          
+          # Test Dashboard
           DASHBOARD=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/dashboard/stats")
-          if echo "$DASHBOARD" | grep -q 'totalMaterials'; then
-            echo "✅ Dashboard API working"
-          else
-            echo "❌ Dashboard API failed"
+          if ! echo "$DASHBOARD" | grep -q 'totalMaterials'; then
+            echo "Dashboard test failed"
             exit 1
           fi
+          echo "Dashboard test: PASS"
           
+          # Test Materials
           MATERIALS=$(curl -s -b "$COOKIE_FILE" "http://13.212.157.243:5001/api/materials?page=1&limit=5")
-          if echo "$MATERIALS" | grep -q 'materials'; then
-            echo "✅ Materials API working"
-          else
-            echo "❌ Materials API failed"
+          if ! echo "$MATERIALS" | grep -q 'materials'; then
+            echo "Materials test failed"
             exit 1
           fi
+          echo "Materials test: PASS"
           
-          echo "✅ All staging tests passed!"
+          echo ""
+          echo "All staging tests passed!"
 
-  deploy:
-    needs: test-staging
+  # Job 2: Create approval issue
+  create-approval-request:
+    needs: [run-staging-tests]
+    if: always() && (needs.run-staging-tests.result == 'success' || needs.run-staging-tests.result == 'skipped')
     runs-on: ubuntu-latest
-    environment: production
-    
+    outputs:
+      issue_number: ${{ steps.create_issue.outputs.issue_number }}
+    steps:
+      - name: Create Approval Issue
+        id: create_issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const approvers = '${{ env.APPROVERS }}'.split(',');
+            const assignees = approvers.map(a => a.trim());
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[APPROVAL REQUIRED] Production Deployment - Run #${{ github.run_number }}`,
+              body: `## Production Deployment Approval Request
+              
+            **Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            **Triggered by:** @${{ github.actor }}
+            **Branch:** \`${{ github.ref_name }}\`
+            **Commit:** \`${{ github.sha }}\`
+            **Time:** ${new Date().toISOString()}
+            
+            ---
+            
+            ### Staging Test Results
+            ${{ needs.run-staging-tests.result == 'success' && '✅ All staging tests passed' || '⏭️ Tests were skipped' }}
+            
+            ---
+            
+            ### Approval Instructions
+            
+            **Approvers:** ${assignees.map(a => '@' + a).join(', ')}
+            
+            To **APPROVE** this deployment, comment one of:
+            - \`approved\`
+            - \`approve\`
+            - \`lgtm\`
+            - \`yes\`
+            
+            To **REJECT** this deployment, comment one of:
+            - \`deny\`
+            - \`denied\`
+            - \`no\`
+            - \`reject\`
+            
+            ---
+            
+            ⏱️ **Timeout:** ${${{ env.APPROVAL_TIMEOUT }}} minutes
+            
+            _This issue was automatically created by GitHub Actions._`,
+              assignees: assignees,
+              labels: ['deployment', 'approval-required', 'production']
+            });
+            
+            console.log(`Created issue #${issue.data.number}`);
+            core.setOutput('issue_number', issue.data.number);
+
+      - name: Comment workflow link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create_issue.outputs.issue_number }},
+              body: `🔗 **Workflow waiting for approval:** [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+            });
+
+  # Job 3: Wait for approval
+  wait-for-approval:
+    needs: [create-approval-request]
+    runs-on: ubuntu-latest
+    outputs:
+      approved: ${{ steps.check_approval.outputs.approved }}
+    steps:
+      - name: Wait for Approval
+        id: check_approval
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ needs.create-approval-request.outputs.issue_number }};
+            const approvers = '${{ env.APPROVERS }}'.split(',').map(a => a.trim().toLowerCase());
+            const timeoutMinutes = ${{ env.APPROVAL_TIMEOUT }};
+            const checkInterval = 30000; // 30 seconds
+            const maxChecks = (timeoutMinutes * 60 * 1000) / checkInterval;
+            
+            const approveKeywords = ['approved', 'approve', 'lgtm', 'yes'];
+            const denyKeywords = ['deny', 'denied', 'no', 'reject'];
+            
+            let approvedBy = new Set();
+            let checks = 0;
+            
+            console.log(`Waiting for approval from: ${approvers.join(', ')}`);
+            console.log(`Timeout: ${timeoutMinutes} minutes`);
+            
+            while (checks < maxChecks) {
+              checks++;
+              console.log(`Check ${checks}/${maxChecks}...`);
+              
+              // Get issue comments
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              
+              for (const comment of comments.data) {
+                const author = comment.user.login.toLowerCase();
+                const body = comment.body.toLowerCase().trim();
+                
+                // Check if author is an approver
+                if (approvers.includes(author)) {
+                  // Check for denial
+                  if (denyKeywords.some(keyword => body === keyword || body.startsWith(keyword))) {
+                    console.log(`Deployment DENIED by @${author}`);
+                    
+                    // Close issue with denied status
+                    await github.rest.issues.update({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      state: 'closed',
+                      labels: ['deployment', 'denied', 'production']
+                    });
+                    
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      body: `❌ **Deployment DENIED by @${author}**\n\nWorkflow has been cancelled.`
+                    });
+                    
+                    core.setOutput('approved', 'false');
+                    core.setFailed(`Deployment denied by @${author}`);
+                    return;
+                  }
+                  
+                  // Check for approval
+                  if (approveKeywords.some(keyword => body === keyword || body.startsWith(keyword))) {
+                    approvedBy.add(author);
+                    console.log(`Approved by @${author} (${approvedBy.size}/${approvers.length})`);
+                  }
+                }
+              }
+              
+              // Check if all approvers have approved
+              if (approvedBy.size >= approvers.length) {
+                console.log('All approvers have approved!');
+                
+                // Update issue
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  state: 'closed',
+                  labels: ['deployment', 'approved', 'production']
+                });
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `✅ **Deployment APPROVED**\n\nApproved by: ${Array.from(approvedBy).map(a => '@' + a).join(', ')}\n\nProceeding with production deployment...`
+                });
+                
+                core.setOutput('approved', 'true');
+                return;
+              }
+              
+              // Wait before next check
+              await new Promise(resolve => setTimeout(resolve, checkInterval));
+            }
+            
+            // Timeout reached
+            console.log('Approval timeout reached');
+            
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: 'closed',
+              labels: ['deployment', 'timeout', 'production']
+            });
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `⏰ **Deployment TIMED OUT**\n\nApproval was not received within ${timeoutMinutes} minutes.\n\nApproved by: ${approvedBy.size > 0 ? Array.from(approvedBy).map(a => '@' + a).join(', ') : 'None'}\nStill waiting for: ${approvers.filter(a => !approvedBy.has(a)).map(a => '@' + a).join(', ')}`
+            });
+            
+            core.setOutput('approved', 'false');
+            core.setFailed('Approval timeout');
+
+  # Job 4: Deploy to production
+  deploy-to-production:
+    needs: [wait-for-approval, create-approval-request]
+    if: needs.wait-for-approval.outputs.approved == 'true'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
+
       - name: Build Frontend
-        working-directory: ./frontend
         run: |
+          cd frontend
           npm ci
-          npm run build
-        env:
-          CI: false
-      
-      - name: Create deployment package
+          REACT_APP_API_URL=http://13.250.124.111:5001 npm run build
+
+      - name: Create Deployment Package
         run: |
           mkdir -p deploy-package
-          cp -r backend deploy-package/
           cp -r frontend/build deploy-package/frontend-build
+          cp -r backend deploy-package/backend
           rm -rf deploy-package/backend/node_modules
           rm -rf deploy-package/backend/uploads/materials/*
-          cd deploy-package && zip -r ../production-deploy.zip . -x "*.git*"
-      
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/prod-key.pem
-          chmod 600 ~/.ssh/prod-key.pem
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          cd deploy-package && zip -r ../production-deploy.zip .
 
       - name: Deploy to Production EC2
-        run: |
-          echo "📦 Uploading package to production..."
-          scp -i ~/.ssh/prod-key.pem -o StrictHostKeyChecking=no \
-            production-deploy.zip \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
-          
-          echo "🚀 Deploying on production server..."
-          ssh -i ~/.ssh/prod-key.pem -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'DEPLOY_SCRIPT'
-            
-            set -e
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ${{ secrets.PROD_EC2_USER }}
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          source: "production-deploy.zip"
+          target: "/home/ubuntu/"
+
+      - name: Extract and Start Services
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ${{ secrets.PROD_EC2_USER }}
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          script: |
             cd /home/ubuntu
             
             # Backup current deployment
             if [ -d "pso-pipeline-prod" ]; then
-              cp -r pso-pipeline-prod pso-pipeline-prod-backup-$(date +%Y%m%d%H%M%S)
+              mv pso-pipeline-prod pso-pipeline-prod-backup-$(date +%Y%m%d%H%M%S)
             fi
             
             # Extract new deployment
             mkdir -p pso-pipeline-prod
-            cd pso-pipeline-prod
-            unzip -o /tmp/production-deploy.zip
+            unzip -o production-deploy.zip -d pso-pipeline-prod/
+            rm production-deploy.zip
             
-            # Install backend dependencies
-            cd backend
+            # Setup backend
+            cd pso-pipeline-prod/backend
+            cp /home/ubuntu/.env.production .env 2>/dev/null || true
             npm ci --production
             
-            # Preserve .env file
-            if [ ! -f .env ]; then
-              echo "⚠️  WARNING: .env file not found! Please configure manually."
-            fi
-            
-            # Restart backend
-            pm2 restart pso-prod-backend || pm2 start server.js --name pso-prod-backend
+            # Restart backend with PM2
+            pm2 delete pso-prod-backend 2>/dev/null || true
+            pm2 start server.js --name pso-prod-backend
+            pm2 save
             
             # Deploy frontend
             sudo rm -rf /var/www/html/*
-            sudo cp -r ../frontend-build/* /var/www/html/
-            sudo chown -R www-data:www-data /var/www/html/
+            sudo cp -r /home/ubuntu/pso-pipeline-prod/frontend-build/* /var/www/html/
             
             # Create uploads symlink
             sudo ln -sf /home/ubuntu/pso-pipeline-prod/backend/uploads /var/www/html/uploads
             
-            echo "✅ Production deployment complete!"
-          DEPLOY_SCRIPT
+            # Restart nginx
+            sudo systemctl reload nginx
+            
+            echo "Production deployment complete!"
 
-      - name: Verify Production Deployment
+      - name: Update Issue with Success
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ needs.create-approval-request.outputs.issue_number }},
+              body: `🚀 **Production Deployment SUCCESSFUL!**\n\n**Production URL:** http://13.250.124.111\n**Deployed at:** ${new Date().toISOString()}\n**Commit:** \`${{ github.sha }}\``
+            });
+
+      - name: Verify Deployment
         run: |
-          echo "🔍 Verifying production deployment..."
+          echo "Waiting for services to start..."
           sleep 10
           
-          HEALTH=$(curl -s --max-time 10 "http://${{ secrets.EC2_HOST }}:5001" || echo "failed")
+          echo "Checking production server..."
+          HEALTH=$(curl -s --max-time 30 "http://13.250.124.111:5001" || echo "failed")
           if echo "$HEALTH" | grep -q "Material Management API"; then
-            echo "✅ Production backend is running!"
+            echo "Production backend is running!"
           else
-            echo "❌ Production backend health check failed"
-            exit 1
+            echo "Warning: Could not verify production backend"
           fi
           
-          echo "🎉 Production deployment verified successfully!"
+          FRONTEND=$(curl -s --max-time 30 "http://13.250.124.111" || echo "failed")
+          if echo "$FRONTEND" | grep -q "html"; then
+            echo "Production frontend is running!"
+          else
+            echo "Warning: Could not verify production frontend"
+          fi
 
-      - name: Cleanup
-        if: always()
-        run: rm -f ~/.ssh/prod-key.pem
+  # Job 5: Handle deployment failure
+  notify-failure:
+    needs: [wait-for-approval, create-approval-request, deploy-to-production]
+    if: failure() && needs.create-approval-request.outputs.issue_number
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Issue with Failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ needs.create-approval-request.outputs.issue_number }};
+            if (issueNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `❌ **Production Deployment FAILED!**\n\nPlease check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`
+              });
+            }
