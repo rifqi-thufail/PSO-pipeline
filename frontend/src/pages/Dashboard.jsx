@@ -41,24 +41,33 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
-  // Helper function untuk render status dengan konsisten
+  // Helper function untuk render status dengan konsisten (sama dengan Material page)
   const renderStatusTag = (status, size = 'default') => {
-    const isActive = status === 'active' || status === 'Active' || status === true;
+    // Normalisasi status untuk memastikan konsistensi
+    let normalizedStatus = false;
+    
+    if (status === true || status === 'true' || status === 'active' || status === 'Active') {
+      normalizedStatus = true;
+    } else if (status === false || status === 'false' || status === 'inactive' || status === 'Inactive') {
+      normalizedStatus = false;
+    } else if (typeof status === 'string') {
+      normalizedStatus = status.toLowerCase() === 'active';
+    }
     
     return (
       <Tag
-        color={isActive ? 'success' : 'error'}
-        icon={isActive ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+        color={normalizedStatus ? 'success' : 'error'}
+        icon={normalizedStatus ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
         style={{
-          fontSize: size === 'small' ? '11px' : '12px',
-          fontWeight: '600',
-          borderRadius: '6px',
+          fontSize: size === 'small' ? '10px' : '12px',
+          fontWeight: '500',
+          borderRadius: '4px',
           padding: size === 'small' ? '2px 6px' : '4px 8px',
           border: 'none',
           textTransform: 'capitalize'
         }}
       >
-        {isActive ? 'Active' : 'Inactive'}
+        {normalizedStatus ? 'Active' : 'Inactive'}
       </Tag>
     );
   };
@@ -182,7 +191,7 @@ function Dashboard({ user, onLogout }) {
                           <img
                             alt={material.materialName}
                             src={`${getBackendURL()}${material.images[0].url}`}
-                            style={{ height: '200px', objectFit: 'cover' }}
+                            style={{ height: '200px', objectFit: 'cover', width: '100%' }}
                             onError={(e) => {
                               e.target.style.display = 'none';
                               e.target.parentElement.innerHTML = `
@@ -214,7 +223,8 @@ function Dashboard({ user, onLogout }) {
                             alignItems: 'flex-start', 
                             justifyContent: 'space-between', 
                             gap: '8px',
-                            flexWrap: 'wrap' 
+                            flexWrap: 'wrap',
+                            marginBottom: '4px'
                           }}>
                             <span style={{ 
                               flex: '1 1 auto', 
@@ -238,19 +248,13 @@ function Dashboard({ user, onLogout }) {
                                 {material.materialNumber}
                               </span>
                             </div>
-                            <div style={{ marginBottom: '8px' }}>
+                            <div style={{ marginBottom: '12px' }}>
                               <strong style={{ color: '#64748B', fontSize: '12px' }}>Division:</strong> 
                               <span className="division-badge" style={{ marginLeft: '4px' }}>
                                 {material.divisionId?.label || material.division || 'Unknown'}
                               </span>
                             </div>
-                            <div style={{ marginBottom: '8px' }}>
-                              <strong style={{ color: '#64748B', fontSize: '12px' }}>Status:</strong>
-                              <span style={{ marginLeft: '8px' }}>
-                                {renderStatusTag(material.status, 'small')}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '12px' }}>
+                            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '8px' }}>
                               <strong>Created:</strong> {material.createdAt ? new Date(material.createdAt).toLocaleString('id-ID', {
                                 year: 'numeric',
                                 month: 'short',
