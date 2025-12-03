@@ -25,6 +25,8 @@ function Dashboard({ user, onLogout }) {
   const fetchStats = async () => {
     try {
       const data = await getDashboardStats();
+      console.log('Dashboard API full response:', data);
+      console.log('Recent materials:', data?.recentMaterials);
       setStats(data);
     } catch (error) {
       // Jika error 401 (Unauthorized), redirect ke login
@@ -41,23 +43,44 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
-  // Helper function untuk render status dengan konsisten (sama dengan Material page)
-  const renderStatusTag = (status, size = 'default') => {
-    // Normalisasi status untuk memastikan konsistensi
-    let normalizedStatus = false;
+  // Helper function untuk render status - SAMA PERSIS dengan Material page
+  const renderStatusTag = (material, size = 'default') => {
+    // Log untuk debug setiap material
+    console.log('Material debug:', {
+      name: material.materialName,
+      status: material.status,
+      isActive: material.isActive,
+      active: material.active,
+      fullMaterial: material
+    });
     
-    if (status === true || status === 'true' || status === 'active' || status === 'Active') {
-      normalizedStatus = true;
-    } else if (status === false || status === 'false' || status === 'inactive' || status === 'Inactive') {
-      normalizedStatus = false;
-    } else if (typeof status === 'string') {
-      normalizedStatus = status.toLowerCase() === 'active';
+    // Coba berbagai field yang mungkin menyimpan status
+    let isActive = false;
+    
+    // Prioritas field status dari yang paling mungkin
+    if (material.hasOwnProperty('isActive')) {
+      isActive = material.isActive === true;
+    } else if (material.hasOwnProperty('active')) {
+      isActive = material.active === true;
+    } else if (material.hasOwnProperty('status')) {
+      if (typeof material.status === 'boolean') {
+        isActive = material.status;
+      } else if (typeof material.status === 'string') {
+        isActive = material.status.toLowerCase() === 'active';
+      } else if (typeof material.status === 'number') {
+        isActive = material.status === 1;
+      }
+    } else {
+      // Default ke active jika tidak ada field status
+      isActive = true;
     }
+    
+    console.log('Final isActive:', isActive);
     
     return (
       <Tag
-        color={normalizedStatus ? 'success' : 'error'}
-        icon={normalizedStatus ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+        color={isActive ? 'success' : 'error'}
+        icon={isActive ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
         style={{
           fontSize: size === 'small' ? '10px' : '12px',
           fontWeight: '500',
@@ -67,7 +90,7 @@ function Dashboard({ user, onLogout }) {
           textTransform: 'capitalize'
         }}
       >
-        {normalizedStatus ? 'Active' : 'Inactive'}
+        {isActive ? 'Active' : 'Inactive'}
       </Tag>
     );
   };
@@ -236,7 +259,7 @@ function Dashboard({ user, onLogout }) {
                               {material.materialName}
                             </span>
                             <div style={{ flex: '0 0 auto' }}>
-                              {renderStatusTag(material.status, 'small')}
+                              {renderStatusTag(material, 'small')}
                             </div>
                           </div>
                         }
