@@ -186,7 +186,22 @@ function Dashboard({ user, onLogout }) {
                       }
                     >
                       <Card.Meta
-                        title={material.materialName}
+                        title={
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                            <span>{material.materialName}</span>
+                            <span 
+                              className="division-badge" 
+                              style={{ 
+                                backgroundColor: material.status === 'active' ? '#52c41a' : '#ff4d4f',
+                                color: 'white',
+                                fontSize: '11px',
+                                fontWeight: '500'
+                              }}
+                            >
+                              {material.status === 'active' ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        }
                         description={
                           <>
                             <div style={{ marginBottom: '8px' }}>
@@ -223,7 +238,7 @@ function Dashboard({ user, onLogout }) {
                     No materials yet. Please add new materials.
                   </p>
                 </div>
-              )}
+                )}
             </Card>
           </div>
         </div>
