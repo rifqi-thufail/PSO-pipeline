@@ -1,0 +1,762 @@
+================================================================================
+                    DOKUMENTASI PROGRESS - MATERIAL MANAGEMENT SYSTEM
+                              PSO Final Project 2025
+================================================================================
+
+================================================================================
+BAGIAN 1: PROSES BISNIS APLIKASI
+================================================================================
+
+1.1 DESKRIPSI APLIKASI
+----------------------
+Material Management System adalah aplikasi web untuk mengelola data material/
+inventaris. Aplikasi ini memungkinkan pengguna untuk:
+
+- Login & Register dengan autentikasi session-based
+- Mengelola data Material (CRUD - Create, Read, Update, Delete)
+- Upload gambar material (maksimal 5MB)
+- Mengelola Dropdown Settings (Division & Placement)
+- Melihat Dashboard statistik material
+- Soft Delete untuk data yang dihapus (bisa di-restore)
+
+1.2 TECH STACK
+--------------
+Frontend:
+  - React.js 18
+  - Ant Design (UI Framework)
+  - Axios (HTTP Client)
+
+Backend:
+  - Node.js + Express.js
+  - PostgreSQL 15 (Database)
+  - Multer (File Upload)
+  - Bcrypt (Password Hashing)
+  - Express-session (Session Management)
+
+Infrastructure:
+  - AWS EC2 (Staging & Production)
+  - PM2 (Process Manager)
+  - Nginx (Reverse Proxy)
+  - GitHub Actions (CI/CD)
+
+1.3 ARSITEKTUR SISTEM
+---------------------
+
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Browser   │────▶│   Nginx     │────▶│   React     │
+│   (User)    │     │   (Port 80) │     │   Frontend  │
+└─────────────┘     └──────┬──────┘     └─────────────┘
+                          │
+                          │ /api/*
+                          ▼
+                   ┌─────────────┐     ┌─────────────┐
+                   │   Express   │────▶│  PostgreSQL │
+                   │   (Port 5001)│     │   Database  │
+                   └─────────────┘     └─────────────┘
+
+1.4 USER FLOW
+-------------
+1. User membuka aplikasi → Redirect ke Login
+2. User login/register → Session disimpan
+3. User masuk Dashboard → Lihat statistik
+4. User ke Materials → CRUD material + upload gambar
+5. User ke Dropdowns → Kelola Division & Placement
+6. User logout → Session dihapus
+
+
+================================================================================
+BAGIAN 2: CI/CD PIPELINE
+================================================================================
+
+2.1 OVERVIEW CI/CD
+------------------
+
+┌─────────────────────────────────────────────────────────────────┐
+│                         CI/CD WORKFLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Developer push code ke branch STAGING                       │
+│           ↓                                                     │
+│  2. [CI] GitHub Actions: Run tests (backend + frontend)         │
+│           ↓                                                     │
+│  3. [CD] GitHub Actions: Auto deploy ke Staging EC2             │
+│           ↓                                                     │
+│  4. [CD] GitHub Actions: Auto trigger Production workflow       │
+│           ↓                                                     │
+│  5. GitHub Actions: Buat Issue untuk Approval                   │
+│           ↓                                                     │
+│  6. Approver comment "approved" di Issue                        │
+│           ↓                                                     │
+│  7. [CD] GitHub Actions: Merge staging → main                   │
+│           ↓                                                     │
+│  8. [CD] Auto deploy ke Production EC2                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+2.2 CONTINUOUS INTEGRATION (CI) - APA SAJA YANG DILAKUKAN
+---------------------------------------------------------
+
+File: .github/workflows/staging-deploy.yml (Job: test)
+
+CI Tasks:
+1. Setup PostgreSQL test database
+2. Install backend dependencies (npm ci)
+3. Run backend unit tests (npm test)
+4. Install frontend dependencies (npm ci)
+5. Run frontend tests (npm test)
+6. Build frontend (npm run build)
+
+Code Snippet CI:
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: material_management_staging
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js for Backend
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Run backend tests
+        working-directory: ./backend
+        run: npm test --if-present
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: material_management_staging
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+      
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test -- --watchAll=false --passWithNoTests
+      
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+```
+
+2.3 CONTINUOUS DEPLOYMENT (CD) - APA SAJA YANG DILAKUKAN
+--------------------------------------------------------
+
+File: .github/workflows/staging-deploy.yml (Job: deploy)
+File: .github/workflows/production-deploy.yml
+
+CD Tasks untuk Staging:
+1. Build frontend di GitHub Actions
+2. Create deployment package (ZIP)
+3. Upload ZIP ke EC2 via SCP
+4. SSH ke EC2: unzip, npm ci, restart PM2, restart nginx
+5. Auto trigger production workflow
+
+CD Tasks untuk Production:
+1. Buat Issue approval otomatis
+2. Tunggu comment "approved" dari approvers
+3. Merge staging → main
+4. Build frontend di GitHub Actions
+5. Upload dan deploy ke Production EC2
+
+Code Snippet CD Staging:
+```yaml
+deploy:
+  needs: test
+  runs-on: ubuntu-latest
+  if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+  
+  steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build frontend
+      working-directory: ./frontend
+      run: |
+        npm ci
+        npm run build
+
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy-package/backend
+        cp -r frontend/build deploy-package/frontend-build
+        cp backend/package*.json deploy-package/backend/
+        cp backend/server.js deploy-package/backend/
+        cp -r backend/config backend/middleware backend/models backend/routes deploy-package/backend/
+        cd deploy-package && zip -r ../staging-deploy.zip .
+
+    - name: Upload to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.STAGING_EC2_HOST }}
+        username: ${{ secrets.STAGING_EC2_USER }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        source: "staging-deploy.zip"
+        target: "/tmp"
+
+    - name: Deploy to Staging EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.STAGING_EC2_HOST }}
+        username: ${{ secrets.STAGING_EC2_USER }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/ubuntu/pso-pipeline-staging
+          unzip -o /tmp/staging-deploy.zip -d .
+          sudo cp -r frontend-build/* /var/www/html/
+          cd backend && npm ci --omit=dev
+          pm2 restart pso-staging-backend || pm2 start server.js --name pso-staging-backend
+          sudo systemctl restart nginx
+```
+
+Code Snippet Auto Trigger Production:
+```yaml
+trigger-production:
+  needs: deploy
+  runs-on: ubuntu-latest
+  if: success()
+  
+  steps:
+    - name: Trigger Production Deployment Workflow
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'production-deploy.yml',
+            ref: 'staging',
+            inputs: {
+              description: `Auto-triggered from staging deployment`
+            }
+          });
+```
+
+2.4 APPROVAL SYSTEM
+-------------------
+
+Production deployment memerlukan approval via GitHub Issue:
+
+Approvers: rifqi-thufail, abyansyah052, akhtar2344
+Cara Approve: Comment "approved", "approve", "lgtm", atau "yes"
+Cara Deny: Comment "deny", "denied", "no", atau "reject"
+Timeout: 60 menit
+
+Code Snippet Approval System:
+```yaml
+- name: Create approval request issue
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const issue = await github.rest.issues.create({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        title: 'Production Deployment Approval Request',
+        body: `## Production Deployment Request
+        
+        **Requested by:** @${context.actor}
+        
+        ### To Approve
+        Comment: \`approved\`, \`approve\`, \`lgtm\`, \`yes\`
+        
+        ### To Deny
+        Comment: \`deny\`, \`denied\`, \`no\`, \`reject\``,
+        labels: ['deployment', 'production', 'awaiting-approval']
+      });
+
+- name: Wait for approval
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const approvers = ['rifqi-thufail', 'abyansyah052', 'akhtar2344'];
+      const approveKeywords = ['approved', 'approve', 'lgtm', 'yes'];
+      
+      // Poll comments setiap 15 detik
+      while (true) {
+        const comments = await github.rest.issues.listComments({...});
+        for (const comment of comments.data) {
+          if (approvers.includes(comment.user.login.toLowerCase())) {
+            if (approveKeywords.some(kw => comment.body.toLowerCase().includes(kw))) {
+              // APPROVED!
+              return;
+            }
+          }
+        }
+        await new Promise(r => setTimeout(r, 15000));
+      }
+```
+
+2.5 GITHUB SECRETS YANG DIGUNAKAN
+---------------------------------
+
+| Secret                  | Deskripsi                              |
+|-------------------------|----------------------------------------|
+| EC2_HOST                | IP Production (13.250.124.111)         |
+| EC2_USER                | Username EC2 Production (ec2-user)     |
+| EC2_SSH_KEY             | Private key Production (pso-key.pem)   |
+| STAGING_EC2_HOST        | IP Staging (13.212.157.243)            |
+| STAGING_EC2_USER        | Username EC2 Staging (ubuntu)          |
+| STAGING_SSH_PRIVATE_KEY | Private key Staging (pso-singapore.pem)|
+
+2.6 EC2 SERVER DETAILS
+----------------------
+
+| Environment  | IP              | User     | Key File          | OS               |
+|--------------|-----------------|----------|-------------------|------------------|
+| Staging      | 13.212.157.243  | ubuntu   | pso-singapore.pem | Ubuntu           |
+| Production   | 13.250.124.111  | ec2-user | pso-key.pem       | Amazon Linux 2023|
+
+
+================================================================================
+BAGIAN 3: ERROR YANG PERNAH DIALAMI DAN SOLUSINYA
+================================================================================
+
+------------------------------------------------------------------------------
+ERROR 1: Resource not accessible by integration (403)
+------------------------------------------------------------------------------
+
+Deskripsi:
+Workflow gagal trigger production workflow dari staging workflow.
+Error: "RequestError [HttpError]: Resource not accessible by integration"
+
+Penyebab:
+GITHUB_TOKEN default tidak punya permission untuk trigger workflow dispatch.
+
+Solusi:
+Tambahkan permission `actions: write` di workflow staging-deploy.yml
+
+Code Fix:
+```yaml
+# SEBELUM (ERROR)
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ staging ]
+
+jobs:
+  test:
+    ...
+
+# SESUDAH (FIXED)
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ staging ]
+
+permissions:
+  contents: read
+  actions: write    # <-- Tambah ini!
+
+jobs:
+  test:
+    ...
+```
+
+------------------------------------------------------------------------------
+ERROR 2: SSH Connection Timed Out
+------------------------------------------------------------------------------
+
+Deskripsi:
+Deployment ke EC2 gagal dengan error "ssh: connect to host xxx.xxx.xxx.xxx 
+port 22: Connection timed out"
+
+Penyebab:
+1. EC2 instance stopped/terminated
+2. Security Group tidak allow port 22
+3. Wrong IP address
+
+Solusi:
+1. Cek EC2 running di AWS Console
+2. Cek Security Group allow inbound SSH (port 22) dari 0.0.0.0/0
+3. Pastikan IP di secrets sudah benar
+
+Verifikasi Command:
+```bash
+# Test SSH dari local
+ssh -i pso-key.pem ec2-user@13.250.124.111
+
+# Cek port 22 open
+nc -zv 13.250.124.111 22
+```
+
+------------------------------------------------------------------------------
+ERROR 3: Permission denied (publickey)
+------------------------------------------------------------------------------
+
+Deskripsi:
+SSH ke EC2 gagal dengan error "Permission denied (publickey)"
+
+Penyebab:
+1. Wrong SSH user (ubuntu vs ec2-user)
+2. Wrong private key
+3. Key not properly formatted in GitHub Secrets
+
+Solusi:
+- Ubuntu EC2 → user: ubuntu
+- Amazon Linux EC2 → user: ec2-user
+- Pastikan private key di-copy lengkap termasuk header/footer
+
+Code Fix (GitHub Secret):
+```
+# Format yang BENAR untuk EC2_SSH_KEY secret:
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA...
+...seluruh isi key...
+-----END RSA PRIVATE KEY-----
+
+# JANGAN ada spasi/newline di awal atau akhir
+```
+
+------------------------------------------------------------------------------
+ERROR 4: Hardcoded /home/ubuntu Failed on Amazon Linux
+------------------------------------------------------------------------------
+
+Deskripsi:
+Deployment ke Production (Amazon Linux) gagal karena path /home/ubuntu 
+tidak ada. Amazon Linux menggunakan /home/ec2-user.
+
+Penyebab:
+Hardcoded path /home/ubuntu di workflow script.
+
+Solusi:
+Gunakan $HOME environment variable yang dinamis.
+
+Code Fix:
+```yaml
+# SEBELUM (ERROR)
+script: |
+  PROJECT_DIR="/home/ubuntu/pso-pipeline-production"
+  cd $PROJECT_DIR
+  ...
+
+# SESUDAH (FIXED)
+script: |
+  PROJECT_DIR="$HOME/pso-pipeline-production"
+  cd $PROJECT_DIR
+  ...
+```
+
+------------------------------------------------------------------------------
+ERROR 5: SSH Timeout saat Build Frontend di EC2
+------------------------------------------------------------------------------
+
+Deskripsi:
+SSH action timeout (default 10 menit) karena npm run build frontend 
+terlalu lama di EC2 t2.micro (resource kecil).
+
+Penyebab:
+EC2 t2.micro hanya punya 1 vCPU dan 1GB RAM, build React terlalu berat.
+
+Solusi:
+Build frontend di GitHub Actions (runner punya resource lebih besar),
+lalu upload hasil build ke EC2.
+
+Code Fix:
+```yaml
+# SEBELUM (ERROR) - Build di EC2
+- name: Deploy to EC2
+  uses: appleboy/ssh-action@v1.0.3
+  with:
+    command_timeout: 10m  # TIMEOUT!
+    script: |
+      cd frontend
+      npm ci
+      npm run build  # <-- Ini yang lama!
+
+# SESUDAH (FIXED) - Build di GitHub Actions
+- name: Build frontend (di GitHub Actions)
+  working-directory: ./frontend
+  run: |
+    npm ci
+    npm run build
+
+- name: Create deployment package
+  run: |
+    cp -r frontend/build deploy-package/frontend-build
+    zip -r deploy.zip deploy-package
+
+- name: Deploy to EC2 (hanya unzip, tidak build)
+  uses: appleboy/ssh-action@v1.0.3
+  with:
+    script: |
+      unzip -o /tmp/deploy.zip
+      sudo cp -r frontend-build/* /var/www/html/
+```
+
+------------------------------------------------------------------------------
+ERROR 6: PM2 Port Conflict (EADDRINUSE)
+------------------------------------------------------------------------------
+
+Deskripsi:
+Backend gagal start dengan error "EADDRINUSE: address already in use :::5001"
+
+Penyebab:
+Ada proses PM2 lama yang masih running di port yang sama.
+
+Solusi:
+Delete semua PM2 apps sebelum start yang baru.
+
+Code Fix:
+```yaml
+# SEBELUM (ERROR)
+script: |
+  pm2 restart pso-backend || pm2 start server.js --name pso-backend
+
+# SESUDAH (FIXED)
+script: |
+  pm2 delete all 2>/dev/null || true  # <-- Tambah ini!
+  pm2 start server.js --name pso-backend --env production
+  pm2 save
+```
+
+------------------------------------------------------------------------------
+ERROR 7: Database Authentication Failed
+------------------------------------------------------------------------------
+
+Deskripsi:
+Backend gagal connect ke PostgreSQL dengan error:
+"error: password authentication failed for user 'postgres'"
+
+Penyebab:
+Credentials di .env file tidak sesuai dengan database.
+
+Solusi:
+Buat/update .env file dengan credentials yang benar.
+
+Code Fix:
+```bash
+# SSH ke EC2
+ssh -i pso-key.pem ec2-user@13.250.124.111
+
+# Buat .env file
+cat > ~/pso-pipeline-production/backend/.env << 'EOF'
+PORT=5001
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=material_management
+DB_USER=app_user
+DB_PASSWORD=pso_secure_password_2024
+SESSION_SECRET=your-super-secret-session-key-production-2024
+NODE_ENV=production
+EOF
+
+# Restart backend
+pm2 restart all
+```
+
+------------------------------------------------------------------------------
+ERROR 8: Images Not Loading (404 /uploads/...)
+------------------------------------------------------------------------------
+
+Deskripsi:
+Gambar material tidak muncul, browser console menunjukkan 404 error
+untuk path /uploads/materials/xxx.jpg
+
+Penyebab:
+1. Nginx tidak dikonfigurasi untuk serve /uploads/
+2. Permission folder uploads salah
+3. SELinux blocking access (Amazon Linux)
+
+Solusi:
+1. Tambah location /uploads/ di nginx config
+2. Set permission 755 untuk folder uploads
+3. Set SELinux context untuk httpd
+
+Code Fix (Nginx):
+```nginx
+# /etc/nginx/conf.d/pso-production.conf
+
+server {
+    listen 80;
+    server_name _;
+    
+    client_max_body_size 5M;
+    
+    root /var/www/html;
+    index index.html;
+
+    # Serve uploaded files
+    location /uploads/ {
+        alias /home/ec2-user/pso-pipeline-production/backend/uploads/;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Proxy API requests to backend
+    location /api/ {
+        proxy_pass http://localhost:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Frontend routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Code Fix (Permission & SELinux):
+```bash
+# Set folder permission
+chmod -R 755 ~/pso-pipeline-production/backend/uploads
+
+# Set SELinux context (Amazon Linux only)
+sudo chcon -R -t httpd_sys_content_t ~/pso-pipeline-production/backend/uploads
+
+# Restart nginx
+sudo systemctl restart nginx
+```
+
+------------------------------------------------------------------------------
+ERROR 9: Bash Arithmetic Exit Code Issue
+------------------------------------------------------------------------------
+
+Deskripsi:
+Workflow test gagal dengan exit code 1 padahal test sebenarnya PASS.
+Terjadi setelah "Auth Check: ✅ PASS"
+
+Penyebab:
+Dalam bash dengan `set -e`, expression `((PASSED++))` return exit code 1
+ketika PASSED bernilai 0 (karena 0 dianggap false dalam arithmetic).
+
+Solusi:
+Gunakan `PASSED=$((PASSED + 1))` instead of `((PASSED++))`.
+
+Code Fix:
+```bash
+# SEBELUM (ERROR)
+PASSED=0
+if [ condition ]; then
+  ((PASSED++))  # Exit code 1 when PASSED=0!
+fi
+
+# SESUDAH (FIXED)
+PASSED=0
+if [ condition ]; then
+  PASSED=$((PASSED + 1))  # Always exit code 0
+fi
+```
+
+------------------------------------------------------------------------------
+ERROR 10: Nginx Directory Not Found
+------------------------------------------------------------------------------
+
+Deskripsi:
+Deployment gagal dengan error "cp: cannot create directory '/var/www/html/': 
+No such file or directory"
+
+Penyebab:
+Folder /var/www/html belum ada di EC2 baru.
+
+Solusi:
+Buat folder terlebih dahulu sebelum copy files.
+
+Code Fix:
+```yaml
+script: |
+  # Pastikan folder ada
+  sudo mkdir -p /var/www/html
+  
+  # Baru copy files
+  sudo cp -r frontend-build/* /var/www/html/
+  
+  # Set permission
+  sudo chown -R nginx:nginx /var/www/html
+```
+
+
+================================================================================
+BAGIAN 4: COMMANDS REFERENCE
+================================================================================
+
+4.1 LOCAL DEVELOPMENT
+---------------------
+# Start backend
+cd backend
+DB_HOST=localhost npm start
+
+# Start frontend
+cd frontend
+npm start
+
+# Run tests
+cd backend && npm test
+cd frontend && npm test
+
+4.2 GITHUB CLI COMMANDS
+-----------------------
+# Lihat status workflow
+gh run list --workflow="staging-deploy.yml" --limit 5
+
+# Lihat detail workflow
+gh run view <run_id>
+
+# Lihat log error
+gh run view <run_id> --log-failed
+
+# Re-run workflow
+gh run rerun <run_id>
+
+# Trigger production deploy manual
+gh workflow run production-deploy.yml --ref staging
+
+# Lihat issue pending approval
+gh issue list --label "awaiting-approval" --state open
+
+# Approve deployment
+gh issue comment <issue_number> --body "approved"
+
+4.3 EC2 SERVER COMMANDS
+-----------------------
+# SSH ke Staging
+ssh -i pso-singapore.pem ubuntu@13.212.157.243
+
+# SSH ke Production
+ssh -i pso-key.pem ec2-user@13.250.124.111
+
+# Cek PM2 status
+pm2 list
+pm2 logs
+
+# Restart services
+pm2 restart all
+sudo systemctl restart nginx
+
+# Cek nginx error
+sudo tail -f /var/log/nginx/error.log
+
+
+================================================================================
+BAGIAN 5: LIVE URLs
+================================================================================
+
+Staging:  http://13.212.157.243
+Production: http://13.250.124.111
+
+
+================================================================================
+                              END OF DOCUMENTATION
+                           Last Updated: December 3, 2025
+================================================================================
