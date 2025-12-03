@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Card, Row, Col, Spin, message } from 'antd';
-import { AppstoreOutlined, CheckCircleOutlined, PieChartOutlined, StarOutlined, BoxPlotOutlined } from '@ant-design/icons';
+import { Layout, Card, Row, Col, Spin, message, Tag } from 'antd';
+import { AppstoreOutlined, CheckCircleOutlined, PieChartOutlined, StarOutlined, BoxPlotOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getDashboardStats, getBackendURL } from '../utils/api';
@@ -39,6 +39,28 @@ function Dashboard({ user, onLogout }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function untuk render status dengan konsisten
+  const renderStatusTag = (status, size = 'default') => {
+    const isActive = status === 'active' || status === 'Active' || status === true;
+    
+    return (
+      <Tag
+        color={isActive ? 'success' : 'error'}
+        icon={isActive ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+        style={{
+          fontSize: size === 'small' ? '11px' : '12px',
+          fontWeight: '600',
+          borderRadius: '6px',
+          padding: size === 'small' ? '2px 6px' : '4px 8px',
+          border: 'none',
+          textTransform: 'capitalize'
+        }}
+      >
+        {isActive ? 'Active' : 'Inactive'}
+      </Tag>
+    );
   };
 
   if (loading) {
@@ -101,15 +123,15 @@ function Dashboard({ user, onLogout }) {
                 </div>
               </Col>
 
-              {/* Divisions */}
+              {/* Inactive Materials */}
               <Col xs={24} sm={12} md={8}>
                 <div className="metric-card">
                   <div className="metric-icon-badge">
-                    <BoxPlotOutlined />
+                    <CloseCircleOutlined />
                   </div>
-                  <div className="metric-label">Divisions</div>
-                  <div className="metric-value">{stats?.totalDivisions || 0}</div>
-                  <div className="metric-subtext">Department categories</div>
+                  <div className="metric-label">Inactive Materials</div>
+                  <div className="metric-value">{stats?.inactiveMaterials || 0}</div>
+                  <div className="metric-subtext">Not currently in use</div>
                 </div>
               </Col>
             </Row>
@@ -187,31 +209,48 @@ function Dashboard({ user, onLogout }) {
                     >
                       <Card.Meta
                         title={
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                            <span>{material.materialName}</span>
-                            <span 
-                              className="division-badge" 
-                              style={{ 
-                                backgroundColor: material.status === 'active' ? '#52c41a' : '#ff4d4f',
-                                color: 'white',
-                                fontSize: '11px',
-                                fontWeight: '500'
-                              }}
-                            >
-                              {material.status === 'active' ? 'Active' : 'Inactive'}
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'flex-start', 
+                            justifyContent: 'space-between', 
+                            gap: '8px',
+                            flexWrap: 'wrap' 
+                          }}>
+                            <span style={{ 
+                              flex: '1 1 auto', 
+                              fontSize: '14px', 
+                              fontWeight: '600',
+                              lineHeight: '1.4',
+                              wordBreak: 'break-word'
+                            }}>
+                              {material.materialName}
                             </span>
+                            <div style={{ flex: '0 0 auto' }}>
+                              {renderStatusTag(material.status, 'small')}
+                            </div>
                           </div>
                         }
                         description={
                           <>
                             <div style={{ marginBottom: '8px' }}>
-                              <strong style={{ color: '#64748B' }}>No:</strong> {material.materialNumber}
+                              <strong style={{ color: '#64748B', fontSize: '12px' }}>No:</strong> 
+                              <span style={{ fontSize: '12px', marginLeft: '4px' }}>
+                                {material.materialNumber}
+                              </span>
                             </div>
-                            <div style={{ marginBottom: '12px' }}>
-                              <strong style={{ color: '#64748B' }}>Division:</strong> 
-                              <span className="division-badge">{material.divisionId?.label}</span>
+                            <div style={{ marginBottom: '8px' }}>
+                              <strong style={{ color: '#64748B', fontSize: '12px' }}>Division:</strong> 
+                              <span className="division-badge" style={{ marginLeft: '4px' }}>
+                                {material.divisionId?.label || material.division || 'Unknown'}
+                              </span>
                             </div>
-                            <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '12px' }}>
+                            <div style={{ marginBottom: '8px' }}>
+                              <strong style={{ color: '#64748B', fontSize: '12px' }}>Status:</strong>
+                              <span style={{ marginLeft: '8px' }}>
+                                {renderStatusTag(material.status, 'small')}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '12px' }}>
                               <strong>Created:</strong> {material.createdAt ? new Date(material.createdAt).toLocaleString('id-ID', {
                                 year: 'numeric',
                                 month: 'short',
@@ -238,7 +277,7 @@ function Dashboard({ user, onLogout }) {
                     No materials yet. Please add new materials.
                   </p>
                 </div>
-                )}
+              )}
             </Card>
           </div>
         </div>
