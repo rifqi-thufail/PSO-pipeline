@@ -52,7 +52,7 @@ function App() {
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
-          height: '100vh' 
+          height: '100vh', 
         }}>
           <Spin size="large" />
         </div>
@@ -141,6 +141,7 @@ function App() {
 
         {/* 404 - Redirect to dashboard */}
         <Route path="*" element={<Navigate to="/" replace />} />
+        {/*test*/}
       </Routes>
     </BrowserRouter>
   );
