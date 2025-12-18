@@ -30,8 +30,8 @@ function Materials({ user, onLogout }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
   
-  // Batch selection states
-  const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
+  // Batch selection states must hide
+  // const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
 
   // Fetch data saat component dimount atau filter berubah
   useEffect(() => {
@@ -123,81 +123,81 @@ function Materials({ user, onLogout }) {
     fetchMaterials();
   };
 
-  // Handle batch delete
-  const handleBatchDelete = async () => {
-    if (selectedMaterialIds.length === 0) {
-      message.warning('Please select at least one material');
-      return;
-    }
+  // Handle batch delete MUST HIDE
+  // const handleBatchDelete = async () => {
+  //   if (selectedMaterialIds.length === 0) {
+  //     message.warning('Please select at least one material');
+  //     return;
+  //   }
 
-    try {
-      for (const id of selectedMaterialIds) {
-        await deleteMaterial(id);
-      }
-      message.success(`${selectedMaterialIds.length} material(s) deleted successfully`);
-      setSelectedMaterialIds([]);
-      fetchMaterials();
-    } catch (error) {
-      message.error('Failed to delete materials: ' + error);
-    }
-  };
+  //   try {
+  //     for (const id of selectedMaterialIds) {
+  //       await deleteMaterial(id);
+  //     }
+  //     message.success(`${selectedMaterialIds.length} material(s) deleted successfully`);
+  //     setSelectedMaterialIds([]);
+  //     fetchMaterials();
+  //   } catch (error) {
+  //     message.error('Failed to delete materials: ' + error);
+  //   }
+  // };
 
-  // Handle batch status update
-  const handleBatchStatusUpdate = async (newStatus) => {
-    if (selectedMaterialIds.length === 0) {
-      message.warning('Please select at least one material');
-      return;
-    }
+  // // Handle batch status update
+  // const handleBatchStatusUpdate = async (newStatus) => {
+  //   if (selectedMaterialIds.length === 0) {
+  //     message.warning('Please select at least one material');
+  //     return;
+  //   }
 
-    try {
-      for (const id of selectedMaterialIds) {
-        const material = materials.find(m => (m.id || m._id) === id);
-        if (material && material.isActive !== newStatus) {
-          await toggleMaterialStatus(id);
-        }
-      }
-      message.success(`${selectedMaterialIds.length} material(s) status updated successfully`);
-      setSelectedMaterialIds([]);
-      fetchMaterials();
-    } catch (error) {
-      message.error('Failed to update materials status: ' + error);
-    }
-  };
+  //   try {
+  //     for (const id of selectedMaterialIds) {
+  //       const material = materials.find(m => (m.id || m._id) === id);
+  //       if (material && material.isActive !== newStatus) {
+  //         await toggleMaterialStatus(id);
+  //       }
+  //     }
+  //     message.success(`${selectedMaterialIds.length} material(s) status updated successfully`);
+  //     setSelectedMaterialIds([]);
+  //     fetchMaterials();
+  //   } catch (error) {
+  //     message.error('Failed to update materials status: ' + error);
+  //   }
+  // };
 
-  // Handle select all
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      const allIds = materials.map(m => m.id || m._id);
-      setSelectedMaterialIds(allIds);
-    } else {
-      setSelectedMaterialIds([]);
-    }
-  };
+  // // Handle select all
+  // const handleSelectAll = (e) => {
+  //   if (e.target.checked) {
+  //     const allIds = materials.map(m => m.id || m._id);
+  //     setSelectedMaterialIds(allIds);
+  //   } else {
+  //     setSelectedMaterialIds([]);
+  //   }
+  // };
 
-  // Handle individual checkbox
-  const handleSelectMaterial = (materialId) => {
-    setSelectedMaterialIds(prev => {
-      if (prev.includes(materialId)) {
-        return prev.filter(id => id !== materialId);
-      } else {
-        return [...prev, materialId];
-      }
-    });
-  };
+  // Handle individual checkbox MUST HIDE
+  // const handleSelectMaterial = (materialId) => {
+  //   setSelectedMaterialIds(prev => {
+  //     if (prev.includes(materialId)) {
+  //       return prev.filter(id => id !== materialId);
+  //     } else {
+  //       return [...prev, materialId];
+  //     }
+  //   });
+  // };
 
-  // Table columns
-  const columns = [
-    {
-      title: <Checkbox checked={selectedMaterialIds.length === materials.length && materials.length > 0} onChange={handleSelectAll} />,
-      key: 'select',
-      width: 50,
-      render: (_, record) => (
-        <Checkbox
-          checked={selectedMaterialIds.includes(record.id || record._id)}
-          onChange={() => handleSelectMaterial(record.id || record._id)}
-        />
-      ),
-    },
+  // Table columns MUST HIDE
+  // const columns = [
+  //   {
+  //     title: <Checkbox checked={selectedMaterialIds.length === materials.length && materials.length > 0} onChange={handleSelectAll} />,
+  //     key: 'select',
+  //     width: 50,
+  //     render: (_, record) => (
+  //       <Checkbox
+  //         checked={selectedMaterialIds.includes(record.id || record._id)}
+    //       onChange={() => handleSelectMaterial(record.id || record._id)}
+    //     />
+    //   ),
+    // },
     {
       title: 'No',
       key: 'no',
@@ -358,8 +358,8 @@ function Materials({ user, onLogout }) {
 
           {/* Filters and Search */}
           <Space style={{ marginBottom: '16px', width: '100%' }} direction="vertical">
-            {/* Batch Actions Bar */}
-            {selectedMaterialIds.length > 0 && (
+            {/* Batch Actions Bar MUST HIDE */}
+            {/* {selectedMaterialIds.length > 0 && (
               <div style={{
                 background: '#e6f7ff',
                 padding: '12px 16px',
@@ -405,7 +405,7 @@ function Materials({ user, onLogout }) {
                   </Button>
                 </Space>
               </div>
-            )}
+            )} */
 
             <Space wrap>
               {/* Create Button */}
