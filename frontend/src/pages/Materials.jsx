@@ -194,10 +194,13 @@ function Materials({ user, onLogout }) {
   //     render: (_, record) => (
   //       <Checkbox
   //         checked={selectedMaterialIds.includes(record.id || record._id)}
-    //       onChange={() => handleSelectMaterial(record.id || record._id)}
-    //     />
-    //   ),
-    // },
+  //         onChange={() => handleSelectMaterial(record.id || record._id)}
+  //       />
+  //     ),
+  //   },
+  // ];
+
+  const columns = [
     {
       title: 'No',
       key: 'no',
