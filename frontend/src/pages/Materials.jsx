@@ -361,8 +361,9 @@ function Materials({ user, onLogout }) {
 
           {/* Filters and Search */}
           <Space style={{ marginBottom: '16px', width: '100%' }} direction="vertical">
-            {/* Batch Actions Bar MUST HIDE */}
-            {/* {selectedMaterialIds.length > 0 && (
+            {/* Batch Actions Bar MUST HIDE - Uncomment below when ready */}
+            {/*
+            {selectedMaterialIds.length > 0 && (
               <div style={{
                 background: '#e6f7ff',
                 padding: '12px 16px',
@@ -376,16 +377,10 @@ function Materials({ user, onLogout }) {
                   {selectedMaterialIds.length} material(s) selected
                 </span>
                 <Space>
-                  <Button
-                    type="default"
-                    onClick={() => handleBatchStatusUpdate(true)}
-                  >
+                  <Button type="default" onClick={() => handleBatchStatusUpdate(true)}>
                     Activate
                   </Button>
-                  <Button
-                    type="default"
-                    onClick={() => handleBatchStatusUpdate(false)}
-                  >
+                  <Button type="default" onClick={() => handleBatchStatusUpdate(false)}>
                     Deactivate
                   </Button>
                   <Popconfirm
@@ -400,15 +395,13 @@ function Materials({ user, onLogout }) {
                       Delete Selected
                     </Button>
                   </Popconfirm>
-                  <Button
-                    type="text"
-                    onClick={() => setSelectedMaterialIds([])}
-                  >
+                  <Button type="text" onClick={() => setSelectedMaterialIds([])}>
                     Clear Selection
                   </Button>
                 </Space>
               </div>
-            )} */
+            )}
+            */}
 
             <Space wrap>
               {/* Create Button */}
