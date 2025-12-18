@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image, Checkbox, Divider } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, DeleteOutlined as BatchDeleteIcon } from '@ant-design/icons';
+import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image, Checkbox } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
 import MaterialForm from '../components/MaterialForm';
 import { getMaterials, deleteMaterial, getDropdowns, toggleMaterialStatus, getBackendURL } from '../utils/api';
