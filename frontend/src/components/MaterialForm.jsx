@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Upload, Button, message, Space } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, AlertOutlined } from '@ant-design/icons';
 import { createMaterial, updateMaterial, uploadMaterialImages, deleteMaterialImage, getDropdowns, getBackendURL } from '../utils/api';
 import { filterHiddenDropdowns } from '../utils/dropdownFilter';
 
@@ -122,6 +122,7 @@ function MaterialForm({ visible, onClose, onSuccess, editingMaterial }) {
       // Validate file type
       const isImage = file.type.startsWith('image/');
       if (!isImage) {
+        <AlertOutlined></AlertOutlined>
         message.error('You can only upload image files!');
         return false;
       }
