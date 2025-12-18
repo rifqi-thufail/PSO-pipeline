@@ -388,7 +388,7 @@ function Materials({ user, onLogout }) {
                     okButtonProps={{ danger: true }}
                   >
                     <Button danger icon={<DeleteOutlined />}>
-                      Delete Selected
+                      Delete Selection
                     </Button>
                   </Popconfirm>
                   <Button type="text" onClick={() => setSelectedMaterialIds([])}>
