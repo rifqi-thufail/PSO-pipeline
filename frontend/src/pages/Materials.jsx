@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image, Checkbox, Divider } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, DeleteOutlined as BatchDeleteIcon } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
 import MaterialForm from '../components/MaterialForm';
 import { getMaterials, deleteMaterial, getDropdowns, toggleMaterialStatus, getBackendURL } from '../utils/api';
@@ -29,6 +29,9 @@ function Materials({ user, onLogout }) {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
+  
+  // Batch selection states
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
 
   // Fetch data saat component dimount atau filter berubah
   useEffect(() => {
@@ -120,8 +123,81 @@ function Materials({ user, onLogout }) {
     fetchMaterials();
   };
 
+  // Handle batch delete
+  const handleBatchDelete = async () => {
+    if (selectedMaterialIds.length === 0) {
+      message.warning('Please select at least one material');
+      return;
+    }
+
+    try {
+      for (const id of selectedMaterialIds) {
+        await deleteMaterial(id);
+      }
+      message.success(`${selectedMaterialIds.length} material(s) deleted successfully`);
+      setSelectedMaterialIds([]);
+      fetchMaterials();
+    } catch (error) {
+      message.error('Failed to delete materials: ' + error);
+    }
+  };
+
+  // Handle batch status update
+  const handleBatchStatusUpdate = async (newStatus) => {
+    if (selectedMaterialIds.length === 0) {
+      message.warning('Please select at least one material');
+      return;
+    }
+
+    try {
+      for (const id of selectedMaterialIds) {
+        const material = materials.find(m => (m.id || m._id) === id);
+        if (material && material.isActive !== newStatus) {
+          await toggleMaterialStatus(id);
+        }
+      }
+      message.success(`${selectedMaterialIds.length} material(s) status updated successfully`);
+      setSelectedMaterialIds([]);
+      fetchMaterials();
+    } catch (error) {
+      message.error('Failed to update materials status: ' + error);
+    }
+  };
+
+  // Handle select all
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allIds = materials.map(m => m.id || m._id);
+      setSelectedMaterialIds(allIds);
+    } else {
+      setSelectedMaterialIds([]);
+    }
+  };
+
+  // Handle individual checkbox
+  const handleSelectMaterial = (materialId) => {
+    setSelectedMaterialIds(prev => {
+      if (prev.includes(materialId)) {
+        return prev.filter(id => id !== materialId);
+      } else {
+        return [...prev, materialId];
+      }
+    });
+  };
+
   // Table columns
   const columns = [
+    {
+      title: <Checkbox checked={selectedMaterialIds.length === materials.length && materials.length > 0} onChange={handleSelectAll} />,
+      key: 'select',
+      width: 50,
+      render: (_, record) => (
+        <Checkbox
+          checked={selectedMaterialIds.includes(record.id || record._id)}
+          onChange={() => handleSelectMaterial(record.id || record._id)}
+        />
+      ),
+    },
     {
       title: 'No',
       key: 'no',
@@ -282,6 +358,55 @@ function Materials({ user, onLogout }) {
 
           {/* Filters and Search */}
           <Space style={{ marginBottom: '16px', width: '100%' }} direction="vertical">
+            {/* Batch Actions Bar */}
+            {selectedMaterialIds.length > 0 && (
+              <div style={{
+                background: '#e6f7ff',
+                padding: '12px 16px',
+                borderRadius: '4px',
+                border: '1px solid #91d5ff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span style={{ fontWeight: 500 }}>
+                  {selectedMaterialIds.length} material(s) selected
+                </span>
+                <Space>
+                  <Button
+                    type="default"
+                    onClick={() => handleBatchStatusUpdate(true)}
+                  >
+                    Activate
+                  </Button>
+                  <Button
+                    type="default"
+                    onClick={() => handleBatchStatusUpdate(false)}
+                  >
+                    Deactivate
+                  </Button>
+                  <Popconfirm
+                    title="Delete Materials"
+                    description={`Are you sure you want to delete ${selectedMaterialIds.length} material(s)?`}
+                    onConfirm={handleBatchDelete}
+                    okText="Yes"
+                    cancelText="No"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button danger icon={<DeleteOutlined />}>
+                      Delete Selected
+                    </Button>
+                  </Popconfirm>
+                  <Button
+                    type="text"
+                    onClick={() => setSelectedMaterialIds([])}
+                  >
+                    Clear Selection
+                  </Button>
+                </Space>
+              </div>
+            )}
+
             <Space wrap>
               {/* Create Button */}
               <Button
