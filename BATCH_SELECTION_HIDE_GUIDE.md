@@ -1,5 +1,79 @@
+# Hide Batch Selection Feature - Quick Guide
+
+Untuk hide fitur batch selection, comment/uncomment bagian berikut di `frontend/src/pages/Materials.jsx`:
+
+## 1️⃣ **STATE** (Line 34-35)
+```jsx
+// HIDE: Comment ini
+const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
+```
+
+## 2️⃣ **BATCH ACTION HANDLERS** (Line 126-176)
+Comment semua function ini:
+```jsx
+// HIDE: Comment dari line 126-176
+// Handle batch delete
+const handleBatchDelete = async () => { ... }
+
+// Handle batch status update
+const handleBatchStatusUpdate = async (newStatus) => { ... }
+
+// Handle select all
+const handleSelectAll = (e) => { ... }
+
+// Handle individual checkbox
+const handleSelectMaterial = (materialId) => { ... }
+```
+
+## 3️⃣ **CHECKBOX COLUMN** (Line 189-196)
+Comment ini dari table columns:
+```jsx
+// HIDE: Comment ini column
+{
+  title: <Checkbox checked={selectedMaterialIds.length === materials.length && materials.length > 0} onChange={handleSelectAll} />,
+  key: 'select',
+  width: 50,
+  render: (_, record) => (
+    <Checkbox
+      checked={selectedMaterialIds.includes(record.id || record._id)}
+      onChange={() => handleSelectMaterial(record.id || record._id)}
+    />
+  ),
+},
+```
+
+## 4️⃣ **BATCH ACTIONS BAR** (Line 363-397)
+Comment ini JSX section:
+```jsx
+// HIDE: Comment ini batch actions bar
+{selectedMaterialIds.length > 0 && (
+  <div style={{...}}>
+    <span style={{ fontWeight: 500 }}>
+      {selectedMaterialIds.length} material(s) selected
+    </span>
+    <Space>
+      {/* Activate button */}
+      {/* Deactivate button */}
+      {/* Delete Selected button */}
+      {/* Clear Selection button */}
+    </Space>
+  </div>
+)}
+```
+
+---
+
+## 📋 Summary
+- **Line 34-35**: State declaration
+- **Line 126-176**: All batch handlers (4 functions)
+- **Line 189-196**: Checkbox column in table
+- **Line 363-397**: Batch actions bar UI
+
+Comment semua ini untuk hide fitur, uncomment untuk show kembali! ✅
+ full:
+
 import React, { useState, useEffect } from 'react';
-import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image, Checkbox } from 'antd';
+import { Layout, Table, Button, Input, Select, Space, message, Popconfirm, Tag, Switch, Image } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
 import MaterialForm from '../components/MaterialForm';
@@ -30,8 +104,8 @@ function Materials({ user, onLogout }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
   
-  // Batch selection states
-  const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
+  // Batch selection states must hide
+  // const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
 
   // Fetch data saat component dimount atau filter berubah
   useEffect(() => {
@@ -123,81 +197,84 @@ function Materials({ user, onLogout }) {
     fetchMaterials();
   };
 
-  // Handle batch delete
-  const handleBatchDelete = async () => {
-    if (selectedMaterialIds.length === 0) {
-      message.warning('Please select at least one material');
-      return;
-    }
+  // Handle batch delete MUST HIDE
+  // const handleBatchDelete = async () => {
+  //   if (selectedMaterialIds.length === 0) {
+  //     message.warning('Please select at least one material');
+  //     return;
+  //   }
 
-    try {
-      for (const id of selectedMaterialIds) {
-        await deleteMaterial(id);
-      }
-      message.success(`${selectedMaterialIds.length} material(s) deleted successfully`);
-      setSelectedMaterialIds([]);
-      fetchMaterials();
-    } catch (error) {
-      message.error('Failed to delete materials: ' + error);
-    }
-  };
+  //   try {
+  //     for (const id of selectedMaterialIds) {
+  //       await deleteMaterial(id);
+  //     }
+  //     message.success(`${selectedMaterialIds.length} material(s) deleted successfully`);
+  //     setSelectedMaterialIds([]);
+  //     fetchMaterials();
+  //   } catch (error) {
+  //     message.error('Failed to delete materials: ' + error);
+  //   }
+  // };
 
-  // Handle batch status update
-  const handleBatchStatusUpdate = async (newStatus) => {
-    if (selectedMaterialIds.length === 0) {
-      message.warning('Please select at least one material');
-      return;
-    }
+  // // Handle batch status update
+  // const handleBatchStatusUpdate = async (newStatus) => {
+  //   if (selectedMaterialIds.length === 0) {
+  //     message.warning('Please select at least one material');
+  //     return;
+  //   }
 
-    try {
-      for (const id of selectedMaterialIds) {
-        const material = materials.find(m => (m.id || m._id) === id);
-        if (material && material.isActive !== newStatus) {
-          await toggleMaterialStatus(id);
-        }
-      }
-      message.success(`${selectedMaterialIds.length} material(s) status updated successfully`);
-      setSelectedMaterialIds([]);
-      fetchMaterials();
-    } catch (error) {
-      message.error('Failed to update materials status: ' + error);
-    }
-  };
+  //   try {
+  //     for (const id of selectedMaterialIds) {
+  //       const material = materials.find(m => (m.id || m._id) === id);
+  //       if (material && material.isActive !== newStatus) {
+  //         await toggleMaterialStatus(id);
+  //       }
+  //     }
+  //     message.success(`${selectedMaterialIds.length} material(s) status updated successfully`);
+  //     setSelectedMaterialIds([]);
+  //     fetchMaterials();
+  //   } catch (error) {
+  //     message.error('Failed to update materials status: ' + error);
+  //   }
+  // };
 
-  // Handle select all
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      const allIds = materials.map(m => m.id || m._id);
-      setSelectedMaterialIds(allIds);
-    } else {
-      setSelectedMaterialIds([]);
-    }
-  };
+  // // Handle select all
+  // const handleSelectAll = (e) => {
+  //   if (e.target.checked) {
+  //     const allIds = materials.map(m => m.id || m._id);
+  //     setSelectedMaterialIds(allIds);
+  //   } else {
+  //     setSelectedMaterialIds([]);
+  //   }
+  // };
 
-  // Handle individual checkbox
-  const handleSelectMaterial = (materialId) => {
-    setSelectedMaterialIds(prev => {
-      if (prev.includes(materialId)) {
-        return prev.filter(id => id !== materialId);
-      } else {
-        return [...prev, materialId];
-      }
-    });
-  };
+  // Handle individual checkbox MUST HIDE
+  // const handleSelectMaterial = (materialId) => {
+  //   setSelectedMaterialIds(prev => {
+  //     if (prev.includes(materialId)) {
+  //       return prev.filter(id => id !== materialId);
+  //     } else {
+  //       return [...prev, materialId];
+  //     }
+  //   });
+  // };
 
-  // Table columns
+  // Table columns MUST HIDE
+  // const columns = [
+  //   {
+  //     title: <Checkbox checked={selectedMaterialIds.length === materials.length && materials.length > 0} onChange={handleSelectAll} />,
+  //     key: 'select',
+  //     width: 50,
+  //     render: (_, record) => (
+  //       <Checkbox
+  //         checked={selectedMaterialIds.includes(record.id || record._id)}
+  //         onChange={() => handleSelectMaterial(record.id || record._id)}
+  //       />
+  //     ),
+  //   },
+  // ];
+
   const columns = [
-    {
-      title: <Checkbox checked={selectedMaterialIds.length === materials.length && materials.length > 0} onChange={handleSelectAll} />,
-      key: 'select',
-      width: 50,
-      render: (_, record) => (
-        <Checkbox
-          checked={selectedMaterialIds.includes(record.id || record._id)}
-          onChange={() => handleSelectMaterial(record.id || record._id)}
-        />
-      ),
-    },
     {
       title: 'No',
       key: 'no',
@@ -358,7 +435,8 @@ function Materials({ user, onLogout }) {
 
           {/* Filters and Search */}
           <Space style={{ marginBottom: '16px', width: '100%' }} direction="vertical">
-            {/* Batch Actions Bar */}
+            {/* Batch Actions Bar MUST HIDE - Uncomment below when ready */}
+            {/*
             {selectedMaterialIds.length > 0 && (
               <div style={{
                 background: '#e6f7ff',
@@ -388,7 +466,7 @@ function Materials({ user, onLogout }) {
                     okButtonProps={{ danger: true }}
                   >
                     <Button danger icon={<DeleteOutlined />}>
-                      Delete Selection
+                      Delete Selected
                     </Button>
                   </Popconfirm>
                   <Button type="text" onClick={() => setSelectedMaterialIds([])}>
@@ -397,6 +475,7 @@ function Materials({ user, onLogout }) {
                 </Space>
               </div>
             )}
+            */}
 
             <Space wrap>
               {/* Create Button */}

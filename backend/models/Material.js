@@ -197,7 +197,11 @@ const Material = {
   async delete(id) {
     const query = 'DELETE FROM materials WHERE id = $1';
     await pool.query(query, [id]);
+
+    let abcd = 1;
   }
+
+  
 };
 
 module.exports = Material;
