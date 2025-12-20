@@ -1,3 +1,8 @@
+# Team member
+- Rifqi Aufa Thufail - 5026231058
+- Akhtar Fattan Widodo - 5026231044
+- Muhammad Abyansyah Putra Dewanto - 5026231052
+  
 # GitHub Actions CI/CD Configuration
 
 This repository uses GitHub Actions for automated testing and deployment to EC2.
