@@ -1141,9 +1141,9 @@ docker-compose up -d
 
 | Name                             | Student ID | Role        |
 | -------------------------------- | ---------- | ----------- |
-| Rifqi Aufa Thufail               | 5026231058 | Team Member |
+| Rifqi Aufa Thufail               | 5026231058 | Team Lead   |
 | Akhtar Fattan Widodo             | 5026231044 | Team Member |
-| Muhammad Abyansyah Putra Dewanto | 5026231052 | Team Lead   |
+| Muhammad Abyansyah Putra Dewanto | 5026231052 | Team Member |
 
 ---
 
